@@ -29,6 +29,7 @@ export function AuthProvider({ children }) {
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
@@ -51,6 +52,7 @@ export function AuthProvider({ children }) {
     try {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, password }),
       });
@@ -72,6 +74,12 @@ export function AuthProvider({ children }) {
   const queryClient = useQueryClient();
 
   const logout = useCallback(() => {
+    fetch('/api/auth/logout', {
+      method: 'POST',
+      credentials: 'include',
+    }).catch(() => {
+      // Local logout still proceeds even if network call fails.
+    });
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(SESSION_KEY);
     setUser(null);

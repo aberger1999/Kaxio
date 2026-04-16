@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from secrets import token_hex
 import bcrypt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -21,9 +22,39 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 
 def create_access_token(user_id: int) -> str:
-    expire = datetime.now(timezone.utc) + timedelta(hours=settings.JWT_EXPIRATION_HOURS)
-    payload = {"sub": str(user_id), "exp": expire}
+    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_TTL_MINUTES)
+    payload = {"sub": str(user_id), "purpose": "access", "exp": expire}
     return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+
+
+def create_refresh_token(user_id: int, jti: str, token_family: str) -> str:
+    expire = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_TTL_DAYS)
+    payload = {
+        "sub": str(user_id),
+        "purpose": "refresh",
+        "jti": jti,
+        "family": token_family,
+        "exp": expire,
+    }
+    return jwt.encode(payload, settings.refresh_secret_key, algorithm=settings.JWT_ALGORITHM)
+
+
+def verify_refresh_token(token: str) -> dict | None:
+    try:
+        payload = jwt.decode(token, settings.refresh_secret_key, algorithms=[settings.JWT_ALGORITHM])
+    except JWTError:
+        return None
+    if payload.get("purpose") != "refresh":
+        return None
+    return {
+        "user_id": int(payload["sub"]),
+        "jti": str(payload["jti"]),
+        "family": str(payload["family"]),
+    }
+
+
+def generate_token_id() -> str:
+    return token_hex(32)
 
 
 def create_reset_token(user_id: int, password_hash: str) -> str:
@@ -60,6 +91,8 @@ async def get_current_user(
     )
     try:
         payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+        if payload.get("purpose") not in (None, "access"):
+            raise credentials_exception
         user_id = int(payload.get("sub"))
     except (JWTError, TypeError, ValueError):
         raise credentials_exception

@@ -1,0 +1,64 @@
+services:
+  - type: web
+    name: quorex-staging
+    runtime: docker
+    plan: starter
+    autoDeploy: true
+    healthCheckPath: /health/ready
+    envVars:
+      - key: ENVIRONMENT
+        value: staging
+      - key: AUTO_CREATE_TABLES
+        value: "false"
+      - key: ENABLE_API_DOCS
+        value: "true"
+      - key: LOG_JSON
+        value: "true"
+      - key: FORCE_HTTPS
+        value: "true"
+      - key: SENTRY_ENVIRONMENT
+        value: staging
+      - key: CORS_ORIGINS
+        value: https://staging-app.example.com
+      - key: ALLOWED_HOSTS
+        value: quorex-staging.onrender.com
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET_KEY
+        sync: false
+      - key: REFRESH_TOKEN_SECRET_KEY
+        sync: false
+      - key: SENTRY_DSN
+        sync: false
+
+  - type: web
+    name: quorex-production
+    runtime: docker
+    plan: starter
+    autoDeploy: false
+    healthCheckPath: /health/ready
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: AUTO_CREATE_TABLES
+        value: "false"
+      - key: ENABLE_API_DOCS
+        value: "false"
+      - key: LOG_JSON
+        value: "true"
+      - key: FORCE_HTTPS
+        value: "true"
+      - key: SENTRY_ENVIRONMENT
+        value: production
+      - key: CORS_ORIGINS
+        value: https://app.example.com
+      - key: ALLOWED_HOSTS
+        value: api.example.com
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET_KEY
+        sync: false
+      - key: REFRESH_TOKEN_SECRET_KEY
+        sync: false
+      - key: SENTRY_DSN
+        sync: false

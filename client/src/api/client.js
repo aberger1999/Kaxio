@@ -1,6 +1,7 @@
 const BASE = '/api';
 const TOKEN_KEY = 'productivity_hub_token';
 const SESSION_KEY = 'productivity_hub_session';
+let refreshInFlight = null;
 
 /**
  * Returns auth headers with Bearer token from localStorage.
@@ -20,7 +21,33 @@ function clearAuthAndRedirect() {
   }
 }
 
-async function request(path, options = {}) {
+async function refreshAccessToken() {
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      const res = await fetch(`${BASE}/auth/refresh`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!res.ok) return null;
+
+      const data = await res.json().catch(() => null);
+      if (data?.token) {
+        localStorage.setItem(TOKEN_KEY, data.token);
+      }
+      if (data?.user) {
+        const session = { ...data.user, isAuthenticated: true };
+        localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+      }
+      return data;
+    })().finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
+}
+
+async function request(path, options = {}, allowRetry = true) {
   const headers = {
     'Content-Type': 'application/json',
     ...getAuthHeaders(),
@@ -30,10 +57,17 @@ async function request(path, options = {}) {
   const res = await fetch(`${BASE}${path}`, {
     ...options,
     headers,
+    credentials: 'include',
   });
 
-  // Auto-logout on 401 — token is missing, expired, or invalid
+  // Refresh access token once on 401 for non-auth API requests.
   if (res.status === 401) {
+    if (allowRetry && !path.startsWith('/auth/')) {
+      const refreshed = await refreshAccessToken();
+      if (refreshed?.token) {
+        return request(path, options, false);
+      }
+    }
     clearAuthAndRedirect();
     throw new Error('Session expired. Please log in again.');
   }

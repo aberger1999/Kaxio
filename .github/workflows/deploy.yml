@@ -1,0 +1,102 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        default: "staging"
+        type: choice
+        options:
+          - staging
+          - production
+      image_tag:
+        description: "Optional release identifier (for logs/notifications)"
+        required: false
+        type: string
+      confirm_production:
+        description: "Required for production: type DEPLOY"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  validate-build:
+    name: Validate deploy build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build container
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: quorex:deploy-check
+
+  deploy-render:
+    name: Deploy to Render
+    runs-on: ubuntu-latest
+    needs: validate-build
+    environment: ${{ github.event.inputs.environment }}
+    steps:
+      - name: Validate production confirmation
+        if: ${{ github.event.inputs.environment == 'production' }}
+        shell: bash
+        run: |
+          if [ "${{ github.event.inputs.confirm_production }}" != "DEPLOY" ]; then
+            echo "::error::Production deploy requires confirm_production=DEPLOY."
+            exit 1
+          fi
+
+      - name: Select deploy hook
+        id: hook
+        shell: bash
+        run: |
+          if [ "${{ github.event.inputs.environment }}" = "production" ]; then
+            HOOK_URL="${{ secrets.RENDER_PRODUCTION_DEPLOY_HOOK_URL }}"
+            APP_URL="${{ secrets.RENDER_PRODUCTION_APP_URL }}"
+          else
+            HOOK_URL="${{ secrets.RENDER_STAGING_DEPLOY_HOOK_URL }}"
+            APP_URL="${{ secrets.RENDER_STAGING_APP_URL }}"
+          fi
+
+          if [ -z "$HOOK_URL" ]; then
+            echo "::error::Missing Render deploy hook URL secret for selected environment."
+            exit 1
+          fi
+
+          echo "hook_url=$HOOK_URL" >> "$GITHUB_OUTPUT"
+          echo "app_url=$APP_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Trigger Render deploy
+        run: |
+          curl --fail --silent --show-error -X POST "${{ steps.hook.outputs.hook_url }}"
+
+      - name: Wait for rollout start
+        run: sleep 20
+
+      - name: Smoke check health endpoint
+        if: ${{ steps.hook.outputs.app_url != '' }}
+        run: |
+          curl --fail --silent --show-error "${{ steps.hook.outputs.app_url }}/health/ready"
+
+      - name: Deployment summary
+        shell: bash
+        run: |
+          echo "Environment: ${{ github.event.inputs.environment }}"
+          echo "Release marker: ${{ github.event.inputs.image_tag }}"
+          if [ -n "${{ steps.hook.outputs.app_url }}" ]; then
+            echo "Health endpoint: ${{ steps.hook.outputs.app_url }}/health/ready"
+          else
+            echo "Health endpoint smoke check skipped (no app URL secret configured)."
+          fi
+          echo "Post-deploy checklist:"
+          echo "  1) Login flow works"
+          echo "  2) Refresh token flow works"
+          echo "  3) Create/read one note"
+          echo "  4) No Sentry spike in first 15 minutes"

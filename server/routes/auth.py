@@ -1,12 +1,23 @@
 import logging
+from datetime import datetime, timedelta, timezone
 from pydantic import BaseModel, EmailStr
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.config import settings
 from server.database import get_db
-from server.auth import hash_password, verify_password, create_access_token, create_reset_token, verify_reset_token
+from server.auth import (
+    create_access_token,
+    create_refresh_token,
+    create_reset_token,
+    generate_token_id,
+    hash_password,
+    verify_password,
+    verify_refresh_token,
+    verify_reset_token,
+)
+from server.models.refresh_token import RefreshToken
 from server.models.user import User
 from server.services.novu_service import trigger_password_reset
 
@@ -35,8 +46,85 @@ class ResetPasswordBody(BaseModel):
     password: str
 
 
+def _cookie_secure() -> bool:
+    return settings.FORCE_HTTPS or settings.is_production
+
+
+def _set_refresh_cookie(response: Response, token: str) -> None:
+    cookie_kwargs = {
+        "key": settings.REFRESH_COOKIE_NAME,
+        "value": token,
+        "httponly": True,
+        "secure": _cookie_secure(),
+        "samesite": settings.REFRESH_COOKIE_SAMESITE,
+        "max_age": settings.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60,
+        "path": "/api/auth",
+    }
+    if settings.REFRESH_COOKIE_DOMAIN:
+        cookie_kwargs["domain"] = settings.REFRESH_COOKIE_DOMAIN
+    response.set_cookie(**cookie_kwargs)
+
+
+def _clear_refresh_cookie(response: Response) -> None:
+    delete_kwargs = {
+        "key": settings.REFRESH_COOKIE_NAME,
+        "path": "/api/auth",
+    }
+    if settings.REFRESH_COOKIE_DOMAIN:
+        delete_kwargs["domain"] = settings.REFRESH_COOKIE_DOMAIN
+    response.delete_cookie(**delete_kwargs)
+
+
+def _extract_client_metadata(request: Request) -> tuple[str | None, str | None]:
+    forwarded_for = request.headers.get("x-forwarded-for", "").strip()
+    client_ip = forwarded_for.split(",")[0].strip() if forwarded_for else None
+    if not client_ip and request.client:
+        client_ip = request.client.host
+    user_agent = request.headers.get("user-agent")
+    return client_ip, user_agent
+
+
+async def _issue_session_tokens(
+    *,
+    user: User,
+    db: AsyncSession,
+    request: Request,
+    response: Response,
+    token_family: str | None = None,
+    previous_jti: str | None = None,
+) -> dict:
+    access_token = create_access_token(user.id)
+    jti = generate_token_id()
+    family = token_family or generate_token_id()
+    refresh_token = create_refresh_token(user.id, jti=jti, token_family=family)
+    expires_at = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_TTL_DAYS)
+    ip_address, user_agent = _extract_client_metadata(request)
+
+    db.add(
+        RefreshToken(
+            user_id=user.id,
+            jti=jti,
+            token_family=family,
+            expires_at=expires_at,
+            replaced_by_jti=None,
+            ip_address=ip_address,
+            user_agent=user_agent[:500] if user_agent else None,
+        )
+    )
+
+    if previous_jti:
+        result = await db.execute(select(RefreshToken).where(RefreshToken.jti == previous_jti))
+        existing = result.scalar_one_or_none()
+        if existing and existing.revoked_at is None:
+            existing.revoked_at = datetime.now(timezone.utc)
+            existing.replaced_by_jti = jti
+
+    _set_refresh_cookie(response, refresh_token)
+    return {"token": access_token, "user": user.to_dict()}
+
+
 @router.post("/register")
-async def register(body: RegisterBody, db: AsyncSession = Depends(get_db)):
+async def register(body: RegisterBody, request: Request, response: Response, db: AsyncSession = Depends(get_db)):
     # Check if email is already taken
     result = await db.execute(select(User).where(User.email == body.email))
     existing = result.scalar_one_or_none()
@@ -52,20 +140,75 @@ async def register(body: RegisterBody, db: AsyncSession = Depends(get_db)):
     await db.flush()
     await db.refresh(user)
 
-    token = create_access_token(user.id)
-    return {"token": token, "user": user.to_dict()}
+    return await _issue_session_tokens(user=user, db=db, request=request, response=response)
 
 
 @router.post("/login")
-async def login(body: LoginBody, db: AsyncSession = Depends(get_db)):
+async def login(body: LoginBody, request: Request, response: Response, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
 
     if not user or not verify_password(body.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
-    token = create_access_token(user.id)
-    return {"token": token, "user": user.to_dict()}
+    return await _issue_session_tokens(user=user, db=db, request=request, response=response)
+
+
+@router.post("/refresh")
+async def refresh_session(request: Request, response: Response, db: AsyncSession = Depends(get_db)):
+    refresh_cookie = request.cookies.get(settings.REFRESH_COOKIE_NAME)
+    if not refresh_cookie:
+        raise HTTPException(status_code=401, detail="Missing refresh token")
+
+    claims = verify_refresh_token(refresh_cookie)
+    if not claims:
+        _clear_refresh_cookie(response)
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
+
+    result = await db.execute(select(RefreshToken).where(RefreshToken.jti == claims["jti"]))
+    token_row = result.scalar_one_or_none()
+    now = datetime.now(timezone.utc)
+
+    if not token_row:
+        _clear_refresh_cookie(response)
+        raise HTTPException(status_code=401, detail="Refresh token not recognized")
+    if token_row.revoked_at is not None:
+        _clear_refresh_cookie(response)
+        raise HTTPException(status_code=401, detail="Refresh token already used")
+    if token_row.expires_at <= now:
+        token_row.revoked_at = now
+        _clear_refresh_cookie(response)
+        raise HTTPException(status_code=401, detail="Refresh token expired")
+
+    user_result = await db.execute(select(User).where(User.id == claims["user_id"]))
+    user = user_result.scalar_one_or_none()
+    if not user:
+        _clear_refresh_cookie(response)
+        raise HTTPException(status_code=401, detail="User no longer exists")
+
+    return await _issue_session_tokens(
+        user=user,
+        db=db,
+        request=request,
+        response=response,
+        token_family=claims["family"],
+        previous_jti=claims["jti"],
+    )
+
+
+@router.post("/logout")
+async def logout(request: Request, response: Response, db: AsyncSession = Depends(get_db)):
+    refresh_cookie = request.cookies.get(settings.REFRESH_COOKIE_NAME)
+    if refresh_cookie:
+        claims = verify_refresh_token(refresh_cookie)
+        if claims:
+            result = await db.execute(select(RefreshToken).where(RefreshToken.jti == claims["jti"]))
+            token_row = result.scalar_one_or_none()
+            if token_row and token_row.revoked_at is None:
+                token_row.revoked_at = datetime.now(timezone.utc)
+
+    _clear_refresh_cookie(response)
+    return {"message": "Logged out"}
 
 
 @router.post("/forgot-password")

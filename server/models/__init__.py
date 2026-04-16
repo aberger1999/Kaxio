@@ -12,3 +12,4 @@ from server.models.focus import FocusSession
 from server.models.canvas import CanvasBoard
 from server.models.todo import TodoList, TodoItem
 from server.models.notification_preference import NotificationPreference
+from server.models.refresh_token import RefreshToken
