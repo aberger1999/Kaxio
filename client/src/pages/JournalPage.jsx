@@ -371,7 +371,13 @@ export default function JournalPage() {
                       let done = false;
                       if (cl?.value) {
                         if (h.trackingType === 'checkbox') done = cl.value === 'true';
-                        else try { done = parseFloat(cl.value) > 0; } catch {}
+                        else {
+                          try {
+                            done = parseFloat(cl.value) > 0;
+                          } catch {
+                            done = false;
+                          }
+                        }
                       }
                       return (
                         <li key={h.id} className="flex items-center gap-2 text-sm">
