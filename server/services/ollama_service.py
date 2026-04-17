@@ -7,6 +7,11 @@ from server.config import settings
 async def get_ollama_response(messages, system_context=""):
     base_url = settings.OLLAMA_BASE_URL
     model = settings.OLLAMA_MODEL
+    headers = {}
+    if settings.OLLAMA_API_KEY:
+        headers[settings.OLLAMA_AUTH_HEADER] = (
+            f"{settings.OLLAMA_AUTH_SCHEME} {settings.OLLAMA_API_KEY}".strip()
+        )
 
     ollama_messages = []
     if system_context:
@@ -18,10 +23,12 @@ async def get_ollama_response(messages, system_context=""):
         async with httpx.AsyncClient(timeout=120) as client:
             resp = await client.post(
                 f"{base_url}/api/chat",
+                headers=headers,
                 json={
                     "model": model,
                     "messages": ollama_messages,
                     "stream": False,
+                    "options": {"num_predict": settings.CHAT_MAX_OUTPUT_TOKENS},
                 },
             )
             resp.raise_for_status()
@@ -41,6 +48,11 @@ async def stream_ollama_response(messages, system_context=""):
     """Async generator that yields content tokens from Ollama's streaming API."""
     base_url = settings.OLLAMA_BASE_URL
     model = settings.OLLAMA_MODEL
+    headers = {}
+    if settings.OLLAMA_API_KEY:
+        headers[settings.OLLAMA_AUTH_HEADER] = (
+            f"{settings.OLLAMA_AUTH_SCHEME} {settings.OLLAMA_API_KEY}".strip()
+        )
 
     ollama_messages = []
     if system_context:
@@ -53,10 +65,12 @@ async def stream_ollama_response(messages, system_context=""):
             async with client.stream(
                 "POST",
                 f"{base_url}/api/chat",
+                headers=headers,
                 json={
                     "model": model,
                     "messages": ollama_messages,
                     "stream": True,
+                    "options": {"num_predict": settings.CHAT_MAX_OUTPUT_TOKENS},
                 },
             ) as resp:
                 resp.raise_for_status()

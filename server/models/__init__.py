@@ -13,3 +13,4 @@ from server.models.canvas import CanvasBoard
 from server.models.todo import TodoList, TodoItem
 from server.models.notification_preference import NotificationPreference
 from server.models.refresh_token import RefreshToken
+from server.models.chat_usage_daily import ChatUsageDaily

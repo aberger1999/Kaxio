@@ -21,6 +21,14 @@ class Settings(BaseSettings):
     REFRESH_COOKIE_SAMESITE: str = "lax"
     OLLAMA_BASE_URL: str = "http://localhost:11434"
     OLLAMA_MODEL: str = "llama3.2"
+    OLLAMA_API_KEY: str = ""
+    OLLAMA_AUTH_HEADER: str = "Authorization"
+    OLLAMA_AUTH_SCHEME: str = "Bearer"
+    CHAT_ENABLED: bool = True
+    CHAT_MAX_INPUT_CHARS: int = 2000
+    CHAT_MAX_OUTPUT_TOKENS: int = 400
+    CHAT_RATE_LIMIT_PER_MINUTE: int = 10
+    CHAT_DAILY_REQUEST_LIMIT: int = 100
     NOVU_API_KEY: str = ""
     FRONTEND_URL: str = "http://localhost:5173"
 

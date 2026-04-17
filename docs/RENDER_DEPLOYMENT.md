@@ -55,6 +55,17 @@ Secrets in both services:
 - `REFRESH_TOKEN_SECRET_KEY=<different-strong-secret>`
 - `SENTRY_DSN=<optional-dsn>`
 
+LLM integration and cost guardrails:
+
+- `OLLAMA_BASE_URL=<ollama-cloud-or-self-hosted-url>`
+- `OLLAMA_MODEL=<model-id>`
+- `OLLAMA_API_KEY=<optional-api-key-for-cloud-endpoints>`
+- `CHAT_ENABLED=true`
+- `CHAT_RATE_LIMIT_PER_MINUTE=10`
+- `CHAT_DAILY_REQUEST_LIMIT=100`
+- `CHAT_MAX_INPUT_CHARS=2000`
+- `CHAT_MAX_OUTPUT_TOKENS=400`
+
 ## 3) GitHub Secrets for Deploy Workflow
 
 Add these repo secrets:

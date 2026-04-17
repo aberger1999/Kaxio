@@ -12,6 +12,7 @@ from server.auth import get_current_user
 from server.models.chat_message import ChatMessage
 from server.services.ollama_service import get_ollama_response, stream_ollama_response
 from server.services.context_builder import build_context
+from server.services.chat_guardrails import enforce_chat_limits
 
 router = APIRouter(prefix="")
 
@@ -32,6 +33,7 @@ async def chat(
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
 ):
+    await enforce_chat_limits(db=db, user_id=user.id, message=body.message)
     session_id = body.sessionId or str(uuid.uuid4())
 
     # Save user message
@@ -82,6 +84,7 @@ async def chat_stream(
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
 ):
+    await enforce_chat_limits(db=db, user_id=user.id, message=body.message)
     session_id = body.sessionId or str(uuid.uuid4())
 
     # Save user message
