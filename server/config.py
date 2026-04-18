@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     CHAT_MAX_OUTPUT_TOKENS: int = 400
     CHAT_RATE_LIMIT_PER_MINUTE: int = 10
     CHAT_DAILY_REQUEST_LIMIT: int = 100
+    ALLOW_NEW_REGISTRATIONS: bool = True
     NOVU_API_KEY: str = ""
     FRONTEND_URL: str = "http://localhost:5173"
 

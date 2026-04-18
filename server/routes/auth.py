@@ -125,6 +125,12 @@ async def _issue_session_tokens(
 
 @router.post("/register")
 async def register(body: RegisterBody, request: Request, response: Response, db: AsyncSession = Depends(get_db)):
+    if not settings.ALLOW_NEW_REGISTRATIONS:
+        raise HTTPException(
+            status_code=403,
+            detail="New account registration is temporarily disabled.",
+        )
+
     # Check if email is already taken
     result = await db.execute(select(User).where(User.email == body.email))
     existing = result.scalar_one_or_none()
