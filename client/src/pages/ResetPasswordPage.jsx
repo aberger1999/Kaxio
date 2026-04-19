@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { Lock, Eye, EyeOff } from 'lucide-react';
 import { authApi } from '../api/client';
 
 export default function ResetPasswordPage() {
   const { token } = useParams();
+  const [searchParams] = useSearchParams();
+  const resetToken = token || searchParams.get('token') || '';
 
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -27,13 +29,17 @@ export default function ResetPasswordPage() {
   async function handleSubmit(ev) {
     ev.preventDefault();
     setServerError('');
+    if (!resetToken) {
+      setServerError('This reset link is invalid or missing a token.');
+      return;
+    }
     const v = validate();
     setErrors(v);
     if (Object.keys(v).length) return;
 
     setLoading(true);
     try {
-      await authApi.resetPassword(token, password);
+      await authApi.resetPassword(resetToken, password);
       setSuccess(true);
     } catch (err) {
       const msg = err.message || '';
@@ -98,6 +104,11 @@ export default function ResetPasswordPage() {
             </>
           ) : (
             <form onSubmit={handleSubmit} noValidate>
+              {!resetToken && (
+                <div className="mb-5 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg px-4 py-3">
+                  This reset link is missing a token. Request a new one below.
+                </div>
+              )}
               {serverError && (
                 <div className="mb-5 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg px-4 py-3">
                   {serverError}
@@ -167,7 +178,7 @@ export default function ResetPasswordPage() {
               {/* Submit */}
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || !resetToken}
                 className="w-full py-2.5 rounded-lg btn-gradient disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? 'Resetting...' : 'Reset Password'}

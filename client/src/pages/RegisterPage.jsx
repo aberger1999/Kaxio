@@ -9,7 +9,8 @@ export default function RegisterPage() {
   const { register } = useAuth();
   const navigate = useNavigate();
 
-  const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -20,7 +21,8 @@ export default function RegisterPage() {
 
   function validate() {
     const e = {};
-    if (!name.trim()) e.name = 'Name is required.';
+    if (!firstName.trim()) e.firstName = 'First name is required.';
+    if (!lastName.trim()) e.lastName = 'Last name is required.';
     if (!email.trim()) e.email = 'Email is required.';
     else if (!EMAIL_RE.test(email)) e.email = 'Enter a valid email address.';
     if (!password) e.password = 'Password is required.';
@@ -37,7 +39,12 @@ export default function RegisterPage() {
     setErrors(v);
     if (Object.keys(v).length) return;
 
-    const result = await register(name.trim(), email, password);
+    const result = await register({
+      firstName,
+      lastName,
+      email,
+      password,
+    });
     if (!result.ok) {
       setServerError(result.error);
       return;
@@ -80,27 +87,51 @@ export default function RegisterPage() {
             </div>
           )}
 
-          {/* Name */}
-          <div className="mb-5">
-            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1.5">
-              Name
-            </label>
-            <div className="relative">
-              <User
-                size={16}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500"
-              />
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Your name"
-                className={inputClass('name')}
-              />
+          {/* First/Last name */}
+          <div className="mb-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1.5">
+                First Name
+              </label>
+              <div className="relative">
+                <User
+                  size={16}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500"
+                />
+                <input
+                  type="text"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  placeholder="Alex"
+                  className={inputClass('firstName')}
+                />
+              </div>
+              {errors.firstName && (
+                <p className="mt-1.5 text-xs text-red-500 dark:text-red-400">{errors.firstName}</p>
+              )}
             </div>
-            {errors.name && (
-              <p className="mt-1.5 text-xs text-red-500 dark:text-red-400">{errors.name}</p>
-            )}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1.5">
+                Last Name
+              </label>
+              <div className="relative">
+                <User
+                  size={16}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500"
+                />
+                <input
+                  type="text"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  placeholder="Berger"
+                  className={inputClass('lastName')}
+                />
+              </div>
+              {errors.lastName && (
+                <p className="mt-1.5 text-xs text-red-500 dark:text-red-400">{errors.lastName}</p>
+              )}
+            </div>
           </div>
 
           {/* Email */}

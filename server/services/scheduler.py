@@ -60,12 +60,16 @@ async def check_event_reminders():
                         continue
 
                     try:
+                        subscriber_id = user.email.strip().lower() if user.email else ""
+                        if not subscriber_id:
+                            logger.warning("Skipping event reminder: missing email for user %s", user.id)
+                            continue
                         await trigger_event_reminder(
-                            subscriber_id=str(user.id),
+                            subscriber_id=subscriber_id,
                             event_title=event.title,
                             event_time=event.start.isoformat(),
                             minutes_before=event.reminder_minutes,
-                            user_name=user.name,
+                            user_name=user.display_name,
                         )
                         logger.info(
                             "Sent event reminder for '%s' to user %s",
@@ -131,11 +135,16 @@ async def send_daily_schedules():
                         for e in events
                     ]
 
+                    subscriber_id = user.email.strip().lower() if user.email else ""
+                    if not subscriber_id:
+                        logger.warning("Skipping daily schedule: missing email for user %s", user.id)
+                        continue
+
                     await trigger_daily_schedule(
-                        subscriber_id=str(user.id),
+                        subscriber_id=subscriber_id,
                         events_today=events_today,
                         total_events=len(events),
-                        user_name=user.name,
+                        user_name=user.display_name,
                     )
                     logger.info("Sent daily schedule to user %s (%d events)", user.id, len(events))
                 except Exception:

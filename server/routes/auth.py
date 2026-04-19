@@ -19,7 +19,7 @@ from server.auth import (
 )
 from server.models.refresh_token import RefreshToken
 from server.models.user import User
-from server.services.novu_service import trigger_password_reset
+from server.services.novu_service import trigger_password_reset, sync_subscriber_profile
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,9 @@ router = APIRouter(prefix="")
 
 
 class RegisterBody(BaseModel):
-    name: str
+    name: str | None = None
+    firstName: str
+    lastName: str
     email: EmailStr
     password: str
 
@@ -131,27 +133,46 @@ async def register(body: RegisterBody, request: Request, response: Response, db:
             detail="New account registration is temporarily disabled.",
         )
 
+    email = str(body.email).strip().lower()
+    first_name = body.firstName.strip()
+    last_name = body.lastName.strip()
+
+    if not first_name:
+        raise HTTPException(status_code=400, detail="First name is required.")
+    if not last_name:
+        raise HTTPException(status_code=400, detail="Last name is required.")
     # Check if email is already taken
-    result = await db.execute(select(User).where(User.email == body.email))
+    result = await db.execute(select(User).where(User.email == email))
     existing = result.scalar_one_or_none()
     if existing:
         raise HTTPException(status_code=409, detail="Email already registered")
 
     user = User(
-        name=body.name,
-        email=body.email,
+        first_name=first_name,
+        last_name=last_name,
+        email=email,
         password_hash=hash_password(body.password),
     )
     db.add(user)
     await db.flush()
     await db.refresh(user)
+    try:
+        await sync_subscriber_profile(
+            subscriber_id=user.email,
+            email=user.email,
+            first_name=user.first_name,
+            last_name=user.last_name,
+        )
+    except Exception:
+        logger.exception("Failed to sync Novu subscriber profile during registration for user %s", user.id)
 
     return await _issue_session_tokens(user=user, db=db, request=request, response=response)
 
 
 @router.post("/login")
 async def login(body: LoginBody, request: Request, response: Response, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User).where(User.email == body.email))
+    email = str(body.email).strip().lower()
+    result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
 
     if not user or not verify_password(body.password, user.password_hash):
@@ -219,7 +240,8 @@ async def logout(request: Request, response: Response, db: AsyncSession = Depend
 
 @router.post("/forgot-password")
 async def forgot_password(body: ForgotPasswordBody, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User).where(User.email == body.email))
+    email = str(body.email).strip().lower()
+    result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
 
     if user:
@@ -227,7 +249,7 @@ async def forgot_password(body: ForgotPasswordBody, db: AsyncSession = Depends(g
         reset_link = f"{settings.FRONTEND_URL}/reset-password/{token}"
         logger.info("Password reset link for %s: %s", user.email, reset_link)
         try:
-            await trigger_password_reset(user.email, user.name, reset_link)
+            await trigger_password_reset(user.email, user.display_name, reset_link)
         except Exception:
             logger.exception("Failed to send password reset email via Novu")
 
@@ -245,6 +267,22 @@ async def reset_password(body: ResetPasswordBody, db: AsyncSession = Depends(get
     if not user or user.password_hash[:10] != claims["fingerprint"]:
         raise HTTPException(status_code=400, detail="Invalid or expired reset link.")
 
+    if verify_password(body.password, user.password_hash):
+        raise HTTPException(status_code=400, detail="Please choose a different password.")
+
     user.password_hash = hash_password(body.password)
+
+    # Revoke all active refresh tokens for this user so existing sessions are
+    # invalidated immediately after a password reset.
+    now = datetime.now(timezone.utc)
+    token_rows = await db.execute(
+        select(RefreshToken).where(
+            RefreshToken.user_id == user.id,
+            RefreshToken.revoked_at.is_(None),
+        )
+    )
+    for row in token_rows.scalars():
+        row.revoked_at = now
+
     await db.flush()
     return {"message": "Password reset successfully."}
