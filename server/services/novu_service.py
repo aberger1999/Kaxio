@@ -99,6 +99,8 @@ async def sync_subscriber_profile(
     first_name: str | None = None,
     last_name: str | None = None,
     phone_number: str | None = None,
+    in_app_enabled: bool | None = None,
+    email_enabled: bool | None = None,
 ) -> dict | None:
     """
     Create/update a Novu subscriber profile so channel providers (email/SMS)
@@ -120,7 +122,10 @@ async def sync_subscriber_profile(
     create_payload: dict[str, str] = {"subscriberId": normalized_subscriber_id}
     update_payload: dict[str, str] = {}
 
-    if normalized_email:
+    if email_enabled is False:
+        # Explicitly clear Novu email channel destination when the user opts out.
+        update_payload["email"] = None
+    elif normalized_email:
         create_payload["email"] = normalized_email
         update_payload["email"] = normalized_email
     if first_name and first_name.strip():
@@ -134,6 +139,15 @@ async def sync_subscriber_profile(
     if normalized_phone:
         create_payload["phone"] = normalized_phone
         update_payload["phone"] = normalized_phone
+
+    data_payload: dict[str, bool] = {}
+    if in_app_enabled is not None:
+        data_payload["inAppNotificationsEnabled"] = in_app_enabled
+    if email_enabled is not None:
+        data_payload["emailNotificationsEnabled"] = email_enabled
+    if data_payload:
+        create_payload["data"] = data_payload
+        update_payload["data"] = data_payload
 
     async with httpx.AsyncClient() as client:
         patch_url = f"{NOVU_SUBSCRIBERS_URL}/{quote(normalized_subscriber_id, safe='')}"

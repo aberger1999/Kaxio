@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import {
-  User, Bell, Shield, Palette, Activity, Target, BookMarked, Timer,
+  User, Bell, Mail, Shield, Palette, Activity, Target, BookMarked, Timer,
   Calendar, Clock, Phone, Check, AlertTriangle, ChevronDown, Moon, Sun,
   Eye, EyeOff,
 } from 'lucide-react';
@@ -415,6 +415,31 @@ function NotificationsSection({ showToast }) {
 
   return (
     <div className="space-y-4">
+      {/* Delivery Channels */}
+      <SectionCard>
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">Delivery Channels</h3>
+        <div className="space-y-3">
+          <NotifCard
+            icon={Bell}
+            color="text-violet-500 bg-violet-50 dark:bg-violet-500/10"
+            label="In-App Notifications"
+            description="Show notifications in the Quorex bell inbox"
+            toggleKey="inAppNotificationsEnabled"
+            form={form}
+            onToggle={handleToggle}
+          />
+          <NotifCard
+            icon={Mail}
+            color="text-blue-500 bg-blue-50 dark:bg-blue-500/10"
+            label="Email Notifications"
+            description="Allow notification emails for reminder workflows"
+            toggleKey="emailNotificationsEnabled"
+            form={form}
+            onToggle={handleToggle}
+          />
+        </div>
+      </SectionCard>
+
       {/* Habit Reminders */}
       <NotifCard
         icon={Activity}

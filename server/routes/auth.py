@@ -162,6 +162,8 @@ async def register(body: RegisterBody, request: Request, response: Response, db:
             email=user.email,
             first_name=user.first_name,
             last_name=user.last_name,
+            in_app_enabled=True,
+            email_enabled=True,
         )
     except Exception:
         logger.exception("Failed to sync Novu subscriber profile during registration for user %s", user.id)

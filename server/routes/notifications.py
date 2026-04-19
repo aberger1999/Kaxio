@@ -23,6 +23,8 @@ class PreferencesUpdate(BaseModel):
     focusNotificationsEnabled: Optional[bool] = None
     weeklyReviewEnabled: Optional[bool] = None
     calendarRemindersEnabled: Optional[bool] = None
+    inAppNotificationsEnabled: Optional[bool] = None
+    emailNotificationsEnabled: Optional[bool] = None
     reminderTime: Optional[str] = None
     phoneNumber: Optional[str] = None
 
@@ -74,6 +76,11 @@ async def update_preferences(
         prefs.weekly_review_enabled = body.weeklyReviewEnabled
     if body.calendarRemindersEnabled is not None:
         prefs.calendar_reminders_enabled = body.calendarRemindersEnabled
+    if body.inAppNotificationsEnabled is not None:
+        prefs.in_app_notifications_enabled = body.inAppNotificationsEnabled
+    if body.emailNotificationsEnabled is not None:
+        prefs.email_notifications_enabled = body.emailNotificationsEnabled
+        should_sync_novu_subscriber = True
     if body.reminderTime is not None:
         parts = body.reminderTime.split(":")
         prefs.reminder_time = time(int(parts[0]), int(parts[1]))
@@ -94,6 +101,8 @@ async def update_preferences(
                     first_name=user.first_name,
                     last_name=user.last_name,
                     phone_number=prefs.phone_number,
+                    in_app_enabled=prefs.in_app_notifications_enabled,
+                    email_enabled=prefs.email_notifications_enabled,
                 )
             except Exception:
                 # Keep user preference updates resilient even if Novu is

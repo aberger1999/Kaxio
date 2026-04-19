@@ -17,6 +17,8 @@ class NotificationPreference(Base):
     focus_notifications_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     weekly_review_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     calendar_reminders_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    in_app_notifications_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    email_notifications_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     reminder_time: Mapped[time] = mapped_column(Time, default=time(9, 0))
     phone_number: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
@@ -29,6 +31,8 @@ class NotificationPreference(Base):
             "focusNotificationsEnabled": self.focus_notifications_enabled,
             "weeklyReviewEnabled": self.weekly_review_enabled,
             "calendarRemindersEnabled": self.calendar_reminders_enabled,
+            "inAppNotificationsEnabled": self.in_app_notifications_enabled,
+            "emailNotificationsEnabled": self.email_notifications_enabled,
             "reminderTime": self.reminder_time.strftime("%H:%M") if self.reminder_time else "09:00",
             "phoneNumber": self.phone_number,
         }
