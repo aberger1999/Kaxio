@@ -48,13 +48,25 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const register = useCallback(async (name, email, password) => {
+  const register = useCallback(async ({ firstName, lastName, email, password }) => {
     try {
+      const safeFirstName = firstName.trim();
+      const safeLastName = lastName.trim();
+      const safeEmail = email.trim().toLowerCase();
+      if (!safeFirstName || !safeLastName) {
+        return { ok: false, error: 'First and last name are required.' };
+      }
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({
+          firstName: safeFirstName,
+          lastName: safeLastName,
+          name: `${safeFirstName} ${safeLastName}`.trim(),
+          email: safeEmail,
+          password,
+        }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));

@@ -1,3 +1,4 @@
+import logging
 from datetime import time
 from typing import Optional
 
@@ -9,8 +10,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from server.database import get_db
 from server.auth import get_current_user
 from server.models.notification_preference import NotificationPreference
+from server.services.novu_service import sync_subscriber_profile
 
 router = APIRouter(prefix="")
+logger = logging.getLogger(__name__)
 
 
 class PreferencesUpdate(BaseModel):
@@ -57,6 +60,7 @@ async def update_preferences(
     user=Depends(get_current_user),
 ):
     prefs = await _get_or_create_prefs(db, user.id)
+    should_sync_novu_subscriber = False
 
     if body.habitRemindersEnabled is not None:
         prefs.habit_reminders_enabled = body.habitRemindersEnabled
@@ -74,8 +78,27 @@ async def update_preferences(
         parts = body.reminderTime.split(":")
         prefs.reminder_time = time(int(parts[0]), int(parts[1]))
     if body.phoneNumber is not None:
-        prefs.phone_number = body.phoneNumber or None
+        cleaned_phone = body.phoneNumber.strip()
+        prefs.phone_number = cleaned_phone or None
+        should_sync_novu_subscriber = True
 
     await db.flush()
+
+    if should_sync_novu_subscriber:
+        subscriber_id = (user.email or "").strip().lower()
+        if subscriber_id:
+            try:
+                await sync_subscriber_profile(
+                    subscriber_id=subscriber_id,
+                    email=subscriber_id,
+                    first_name=user.first_name,
+                    last_name=user.last_name,
+                    phone_number=prefs.phone_number,
+                )
+            except Exception:
+                # Keep user preference updates resilient even if Novu is
+                # temporarily unavailable.
+                logger.exception("Failed to sync Novu subscriber profile for user %s", user.id)
+
     await db.refresh(prefs)
     return prefs.to_dict()

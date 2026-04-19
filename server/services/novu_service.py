@@ -47,12 +47,21 @@ The following workflow identifiers must be created in the Novu dashboard
 """
 
 import logging
+from urllib.parse import quote
 import httpx
 from server.config import settings
 
 logger = logging.getLogger(__name__)
 
 NOVU_API_URL = "https://api.novu.co/v1/events/trigger"
+NOVU_SUBSCRIBERS_URL = "https://api.novu.co/v1/subscribers"
+
+
+def _novu_headers(api_key: str) -> dict[str, str]:
+    return {
+        "Authorization": f"ApiKey {api_key}",
+        "Content-Type": "application/json",
+    }
 
 
 async def _trigger(workflow_id: str, subscriber_id: str, payload: dict) -> dict | None:
@@ -62,22 +71,101 @@ async def _trigger(workflow_id: str, subscriber_id: str, payload: dict) -> dict 
         logger.warning("NOVU_API_KEY not set — skipping notification trigger")
         return None
 
+    subscriber = {"subscriberId": subscriber_id}
+    # When subscriber IDs are emails, include the explicit email field so Novu
+    # can resolve email-channel deliveries without relying on a prior profile.
+    if "@" in subscriber_id:
+        subscriber["email"] = subscriber_id
+
     async with httpx.AsyncClient() as client:
         response = await client.post(
             NOVU_API_URL,
-            headers={
-                "Authorization": f"ApiKey {api_key}",
-                "Content-Type": "application/json",
-            },
+            headers=_novu_headers(api_key),
             json={
                 "name": workflow_id,
-                "to": {"subscriberId": subscriber_id},
+                "to": subscriber,
                 "payload": payload,
             },
             timeout=10.0,
         )
         response.raise_for_status()
         return response.json()
+
+
+async def sync_subscriber_profile(
+    *,
+    subscriber_id: str,
+    email: str | None = None,
+    first_name: str | None = None,
+    last_name: str | None = None,
+    phone_number: str | None = None,
+) -> dict | None:
+    """
+    Create/update a Novu subscriber profile so channel providers (email/SMS)
+    always have current contact details.
+    """
+    api_key = settings.NOVU_API_KEY
+    if not api_key:
+        logger.warning("NOVU_API_KEY not set — skipping subscriber sync")
+        return None
+
+    normalized_subscriber_id = subscriber_id.strip().lower()
+    if not normalized_subscriber_id:
+        logger.warning("Skipping Novu subscriber sync: empty subscriber_id")
+        return None
+
+    normalized_email = (email or "").strip().lower()
+    normalized_phone = (phone_number or "").strip()
+
+    create_payload: dict[str, str] = {"subscriberId": normalized_subscriber_id}
+    update_payload: dict[str, str] = {}
+
+    if normalized_email:
+        create_payload["email"] = normalized_email
+        update_payload["email"] = normalized_email
+    if first_name and first_name.strip():
+        value = first_name.strip()
+        create_payload["firstName"] = value
+        update_payload["firstName"] = value
+    if last_name and last_name.strip():
+        value = last_name.strip()
+        create_payload["lastName"] = value
+        update_payload["lastName"] = value
+    if normalized_phone:
+        create_payload["phone"] = normalized_phone
+        update_payload["phone"] = normalized_phone
+
+    async with httpx.AsyncClient() as client:
+        patch_url = f"{NOVU_SUBSCRIBERS_URL}/{quote(normalized_subscriber_id, safe='')}"
+        patch_response = await client.patch(
+            patch_url,
+            headers=_novu_headers(api_key),
+            json=update_payload,
+            timeout=10.0,
+        )
+        if patch_response.status_code != 404:
+            patch_response.raise_for_status()
+            return patch_response.json()
+
+        create_response = await client.post(
+            NOVU_SUBSCRIBERS_URL,
+            headers=_novu_headers(api_key),
+            json=create_payload,
+            timeout=10.0,
+        )
+        if create_response.status_code == 409:
+            # Race safety: subscriber was created between PATCH and POST.
+            retry_patch_response = await client.patch(
+                patch_url,
+                headers=_novu_headers(api_key),
+                json=update_payload,
+                timeout=10.0,
+            )
+            retry_patch_response.raise_for_status()
+            return retry_patch_response.json()
+
+        create_response.raise_for_status()
+        return create_response.json()
 
 
 async def trigger_habit_reminder(subscriber_id: str, habit_name: str) -> dict | None:

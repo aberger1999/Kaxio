@@ -235,7 +235,8 @@ function ProfileSection({ showToast }) {
   useEffect(() => {
     if (profile && !form) {
       setForm({
-        name: profile.name || '',
+        firstName: profile.firstName || '',
+        lastName: profile.lastName || '',
         email: profile.email || '',
         timezone: profile.timezone || '',
       });
@@ -246,7 +247,12 @@ function ProfileSection({ showToast }) {
     mutationFn: (data) => usersApi.updateProfile(data),
     onSuccess: (updated) => {
       queryClient.setQueryData(['user-profile'], updated);
-      setForm({ name: updated.name, email: updated.email, timezone: updated.timezone || '' });
+      setForm({
+        firstName: updated.firstName || '',
+        lastName: updated.lastName || '',
+        email: updated.email,
+        timezone: updated.timezone || '',
+      });
       setConfirmEmail('');
       setErrors({});
       showToast('Profile updated');
@@ -260,7 +266,8 @@ function ProfileSection({ showToast }) {
 
   function handleSave() {
     const errs = {};
-    if (!form.name.trim()) errs.name = 'Name is required';
+    if (!form.firstName.trim()) errs.firstName = 'First name is required';
+    if (!form.lastName.trim()) errs.lastName = 'Last name is required';
     if (!form.email.trim()) errs.email = 'Email is required';
     if (form.email !== profile.email && form.email !== confirmEmail) {
       errs.confirmEmail = 'Emails do not match';
@@ -269,7 +276,8 @@ function ProfileSection({ showToast }) {
     if (Object.keys(errs).length) return;
 
     const updates = {};
-    if (form.name !== profile.name) updates.name = form.name;
+    if (form.firstName !== (profile.firstName || '')) updates.firstName = form.firstName;
+    if (form.lastName !== (profile.lastName || '')) updates.lastName = form.lastName;
     if (form.email !== profile.email) updates.email = form.email;
     if (form.timezone !== (profile.timezone || '')) updates.timezone = form.timezone;
     if (Object.keys(updates).length === 0) { showToast('No changes to save'); return; }
@@ -286,15 +294,27 @@ function ProfileSection({ showToast }) {
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-5">Profile Information</h2>
 
         <div className="space-y-4">
-          {/* Name */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
-            <input
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="w-full px-3 py-2 text-sm border rounded-lg bg-transparent dark:border-slate-700 text-gray-800 dark:text-gray-200 outline-none focus:ring-2 focus:ring-primary/50"
-            />
-            <FieldError error={errors.name} />
+          {/* First and last name */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">First Name</label>
+              <input
+                value={form.firstName}
+                onChange={(e) => setForm({ ...form, firstName: e.target.value })}
+                className="w-full px-3 py-2 text-sm border rounded-lg bg-transparent dark:border-slate-700 text-gray-800 dark:text-gray-200 outline-none focus:ring-2 focus:ring-primary/50"
+              />
+              <FieldError error={errors.firstName} />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Last Name</label>
+              <input
+                value={form.lastName}
+                onChange={(e) => setForm({ ...form, lastName: e.target.value })}
+                className="w-full px-3 py-2 text-sm border rounded-lg bg-transparent dark:border-slate-700 text-gray-800 dark:text-gray-200 outline-none focus:ring-2 focus:ring-primary/50"
+              />
+              <FieldError error={errors.lastName} />
+            </div>
           </div>
 
           {/* Email */}
