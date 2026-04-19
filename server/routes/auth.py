@@ -141,7 +141,6 @@ async def register(body: RegisterBody, request: Request, response: Response, db:
         raise HTTPException(status_code=400, detail="First name is required.")
     if not last_name:
         raise HTTPException(status_code=400, detail="Last name is required.")
-
     # Check if email is already taken
     result = await db.execute(select(User).where(User.email == email))
     existing = result.scalar_one_or_none()
