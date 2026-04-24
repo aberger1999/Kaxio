@@ -20,7 +20,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useFocusTimer } from '../hooks/useFocusTimer';
 
 const links = [
-  { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/calendar', icon: Calendar, label: 'Calendar' },
   { to: '/journal', icon: BookMarked, label: 'Journal' },
   { to: '/habits', icon: Activity, label: 'Habits' },

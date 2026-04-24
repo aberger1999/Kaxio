@@ -73,11 +73,22 @@ export function AuthProvider({ children }) {
         return { ok: false, error: data.detail || 'Registration failed.' };
       }
       const data = await res.json();
-      localStorage.setItem(TOKEN_KEY, data.token);
-      const session = { ...data.user, isAuthenticated: true };
-      localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-      setUser(session);
-      return { ok: true };
+
+      // Backward compatible: older API versions may still auto-login on register.
+      if (data?.token && data?.user) {
+        localStorage.setItem(TOKEN_KEY, data.token);
+        const session = { ...data.user, isAuthenticated: true };
+        localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+        setUser(session);
+        return { ok: true };
+      }
+
+      return {
+        ok: true,
+        requiresEmailVerification: Boolean(data?.requiresEmailVerification),
+        email: data?.email || safeEmail,
+        message: data?.message || '',
+      };
     } catch {
       return { ok: false, error: 'Network error. Please try again.' };
     }

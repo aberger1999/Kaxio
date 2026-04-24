@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Integer, String, DateTime, CheckConstraint
+from sqlalchemy import Integer, String, DateTime, CheckConstraint, Boolean
 from sqlalchemy.orm import Mapped, mapped_column
 from server.models.base import Base
 
@@ -16,6 +16,7 @@ class User(Base):
     last_name: Mapped[str] = mapped_column(String(100), nullable=False, default="")
     email: Mapped[str] = mapped_column(String(300), unique=True, nullable=False, index=True)
     password_hash: Mapped[str] = mapped_column(String(300), nullable=False)
+    is_email_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     timezone: Mapped[str | None] = mapped_column(String(100), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
@@ -32,6 +33,7 @@ class User(Base):
             "firstName": self.first_name,
             "lastName": self.last_name,
             "email": self.email,
+            "isEmailVerified": self.is_email_verified,
             "timezone": self.timezone,
             "createdAt": self.created_at.isoformat() if self.created_at else None,
         }

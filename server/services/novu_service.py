@@ -44,6 +44,11 @@ The following workflow identifiers must be created in the Novu dashboard
    - Trigger: trigger_daily_schedule(subscriber_id, events_today, total_events, user_name)
    - Payload: { eventsToday: [{title: str, time: str}], totalEvents: int, userName: str }
    - Suggested template: "Good morning {{userName}}! You have {{totalEvents}} events today."
+
+8. email-verification
+   - Trigger: trigger_email_verification(subscriber_id, user_name, verification_link)
+   - Payload: { userName: str, verificationLink: str }
+   - Suggested template: "Hi {{userName}}, verify your email: {{verificationLink}}"
 """
 
 import logging
@@ -239,6 +244,17 @@ async def trigger_password_reset(
         "password-reset",
         subscriber_id,
         {"userName": user_name, "resetLink": reset_link},
+    )
+
+
+async def trigger_email_verification(
+    subscriber_id: str, user_name: str, verification_link: str
+) -> dict | None:
+    """Trigger an email verification notification."""
+    return await _trigger(
+        "email-verification",
+        subscriber_id,
+        {"userName": user_name, "verificationLink": verification_link},
     )
 
 
