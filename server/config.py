@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     CHAT_DAILY_REQUEST_LIMIT: int = 100
     ALLOW_NEW_REGISTRATIONS: bool = True
     NOVU_API_KEY: str = ""
+    NOVU_GOAL_REMINDER_DAYS: str = "1,2,3"
     FRONTEND_URL: str = "http://localhost:5173"
 
     CORS_ORIGINS: str = "http://localhost:5173"

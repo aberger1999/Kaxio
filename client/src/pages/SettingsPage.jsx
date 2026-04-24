@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import {
@@ -17,6 +17,88 @@ const SECTIONS = [
   { id: 'account', label: 'Account', icon: Shield },
   { id: 'appearance', label: 'Appearance', icon: Palette },
 ];
+const GOAL_REMINDER_DAY_OPTIONS = [1, 2, 3, 5, 7, 14, 30];
+const PHONE_COUNTRY_CODES = [
+  { code: '+1', label: 'US / Canada (+1)' },
+  { code: '+44', label: 'UK (+44)' },
+  { code: '+61', label: 'Australia (+61)' },
+  { code: '+64', label: 'New Zealand (+64)' },
+  { code: '+91', label: 'India (+91)' },
+  { code: '+49', label: 'Germany (+49)' },
+  { code: '+33', label: 'France (+33)' },
+  { code: '+34', label: 'Spain (+34)' },
+  { code: '+39', label: 'Italy (+39)' },
+  { code: '+52', label: 'Mexico (+52)' },
+  { code: '+55', label: 'Brazil (+55)' },
+];
+const MIN_PHONE_LOCAL_DIGITS = 7;
+const MAX_PHONE_LOCAL_DIGITS = 14;
+
+function normalizeGoalReminderDays(days) {
+  if (!Array.isArray(days)) return [1, 2, 3];
+  const normalized = [...new Set(days
+    .map((d) => Number(d))
+    .filter((d) => Number.isInteger(d) && d >= 1 && d <= 30))]
+    .sort((a, b) => a - b);
+  return normalized.length > 0 ? normalized : [1, 2, 3];
+}
+
+function splitPhoneForForm(phoneNumber) {
+  const raw = String(phoneNumber || '').trim();
+  if (!raw) {
+    return { phoneCountryCode: '+1', phoneLocalNumber: '' };
+  }
+
+  const normalized = raw.startsWith('+')
+    ? `+${raw.slice(1).replace(/\D/g, '')}`
+    : `+${raw.replace(/\D/g, '')}`;
+
+  const knownCodes = PHONE_COUNTRY_CODES
+    .map(({ code }) => code)
+    .sort((a, b) => b.length - a.length);
+  const matchedCode = knownCodes.find((code) => normalized.startsWith(code));
+  if (matchedCode) {
+    return {
+      phoneCountryCode: matchedCode,
+      phoneLocalNumber: normalized.slice(matchedCode.length),
+    };
+  }
+
+  return {
+    phoneCountryCode: '+1',
+    phoneLocalNumber: normalized.replace(/^\+\d{1,3}/, ''),
+  };
+}
+
+function buildPhoneForSave(countryCode, localNumber) {
+  const codeDigits = String(countryCode || '').replace(/\D/g, '');
+  const localDigits = String(localNumber || '').replace(/\D/g, '');
+  if (!localDigits) return '';
+  const normalizedCode = codeDigits ? `+${codeDigits}` : '+1';
+  return `${normalizedCode}${localDigits}`;
+}
+
+function validatePhoneLocalNumber(localNumber) {
+  const digits = String(localNumber || '').replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.length < MIN_PHONE_LOCAL_DIGITS) {
+    return `Enter at least ${MIN_PHONE_LOCAL_DIGITS} digits.`;
+  }
+  if (digits.length > MAX_PHONE_LOCAL_DIGITS) {
+    return `Use no more than ${MAX_PHONE_LOCAL_DIGITS} digits.`;
+  }
+  return '';
+}
+
+function toNotificationsForm(prefs) {
+  const { phoneCountryCode, phoneLocalNumber } = splitPhoneForForm(prefs?.phoneNumber);
+  return {
+    ...prefs,
+    goalReminderDays: normalizeGoalReminderDays(prefs?.goalReminderDays),
+    phoneCountryCode,
+    phoneLocalNumber,
+  };
+}
 
 // ─── Shared components ───
 function Toggle({ checked, onChange, disabled }) {
@@ -390,14 +472,16 @@ function NotificationsSection({ showToast }) {
   const [form, setForm] = useState(null);
 
   useEffect(() => {
-    if (prefs && !form) setForm({ ...prefs });
+    if (prefs && !form) {
+      setForm(toNotificationsForm(prefs));
+    }
   }, [prefs]);
 
   const updateMut = useMutation({
     mutationFn: (data) => notificationsApi.updatePreferences(data),
     onSuccess: (updated) => {
       queryClient.setQueryData(['notification-preferences'], updated);
-      setForm({ ...updated });
+      setForm(toNotificationsForm(updated));
       showToast('Preferences saved');
     },
   });
@@ -411,7 +495,36 @@ function NotificationsSection({ showToast }) {
     updateMut.mutate({ [key]: form[key] });
   }
 
+  function toggleGoalReminderDay(day) {
+    const current = normalizeGoalReminderDays(form.goalReminderDays);
+    const isSelected = current.includes(day);
+    let next;
+    if (isSelected) {
+      next = current.filter((d) => d !== day);
+    } else {
+      next = [...current, day];
+    }
+    if (next.length === 0) {
+      next = current;
+    }
+    next = normalizeGoalReminderDays(next);
+    setForm((f) => ({ ...f, goalReminderDays: next }));
+    updateMut.mutate({ goalReminderDays: next });
+  }
+
+  function handlePhoneSave() {
+    const validationError = validatePhoneLocalNumber(form.phoneLocalNumber);
+    if (validationError) {
+      return;
+    }
+    const combinedPhone = buildPhoneForSave(form.phoneCountryCode, form.phoneLocalNumber);
+    setForm((f) => ({ ...f, phoneNumber: combinedPhone }));
+    updateMut.mutate({ phoneNumber: combinedPhone });
+  }
+
   if (isLoading || !form) return <Spinner />;
+  const phoneValidationError = validatePhoneLocalNumber(form.phoneLocalNumber);
+  const phoneSavePreview = buildPhoneForSave(form.phoneCountryCode, form.phoneLocalNumber);
 
   return (
     <div className="space-y-4">
@@ -477,7 +590,30 @@ function NotificationsSection({ showToast }) {
         toggleKey="goalRemindersEnabled"
         form={form}
         onToggle={handleToggle}
-      />
+      >
+        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+          Remind me this many days before deadline
+        </label>
+        <div className="flex flex-wrap gap-2">
+          {GOAL_REMINDER_DAY_OPTIONS.map((day) => {
+            const selected = normalizeGoalReminderDays(form.goalReminderDays).includes(day);
+            return (
+              <button
+                key={day}
+                type="button"
+                onClick={() => toggleGoalReminderDay(day)}
+                className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                  selected
+                    ? 'bg-primary/15 text-primary border-primary/40 dark:bg-primary/30 dark:border-primary/50'
+                    : 'bg-white dark:bg-slate-900 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-slate-700 hover:border-primary/40'
+                }`}
+              >
+                {day} day{day === 1 ? '' : 's'}
+              </button>
+            );
+          })}
+        </div>
+      </NotifCard>
 
       {/* Journal Prompts */}
       <NotifCard
@@ -551,21 +687,44 @@ function NotificationsSection({ showToast }) {
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phone Number</label>
             <p className="text-xs text-gray-400 mb-2">Optional — for SMS notifications</p>
             <div className="flex items-center gap-2">
+              <select
+                value={form.phoneCountryCode || '+1'}
+                onChange={(e) => setForm((f) => ({ ...f, phoneCountryCode: e.target.value }))}
+                className="px-2.5 py-1.5 text-sm border rounded-lg bg-transparent dark:border-slate-700 text-gray-800 dark:text-gray-200 outline-none focus:ring-2 focus:ring-primary/50"
+              >
+                {form.phoneCountryCode && !PHONE_COUNTRY_CODES.some(({ code }) => code === form.phoneCountryCode) && (
+                  <option value={form.phoneCountryCode}>{form.phoneCountryCode}</option>
+                )}
+                {PHONE_COUNTRY_CODES.map(({ code, label }) => (
+                  <option key={code} value={code}>{label}</option>
+                ))}
+              </select>
               <input
                 type="tel"
-                value={form.phoneNumber || ''}
-                onChange={(e) => setForm((f) => ({ ...f, phoneNumber: e.target.value }))}
-                placeholder="+1 (555) 000-0000"
-                className="px-3 py-1.5 text-sm border rounded-lg bg-transparent dark:border-slate-700 text-gray-800 dark:text-gray-200 outline-none focus:ring-2 focus:ring-primary/50 w-56"
+                value={form.phoneLocalNumber || ''}
+                onChange={(e) => setForm((f) => ({ ...f, phoneLocalNumber: e.target.value }))}
+                placeholder="555 000 0000"
+                className={`px-3 py-1.5 text-sm border rounded-lg bg-transparent text-gray-800 dark:text-gray-200 outline-none focus:ring-2 focus:ring-primary/50 w-44 ${
+                  phoneValidationError
+                    ? 'border-red-400 dark:border-red-400'
+                    : 'dark:border-slate-700'
+                }`}
               />
               <button
-                onClick={() => handleFieldSave('phoneNumber')}
-                disabled={updateMut.isPending}
+                onClick={handlePhoneSave}
+                disabled={updateMut.isPending || Boolean(phoneValidationError)}
                 className="px-3 py-1.5 text-xs btn-gradient text-white rounded-lg disabled:opacity-40"
               >
                 Save
               </button>
             </div>
+            <FieldError error={phoneValidationError} />
+            {!phoneValidationError && phoneSavePreview && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Will save as{' '}
+                <span className="font-mono text-gray-700 dark:text-gray-200">{phoneSavePreview}</span>
+              </p>
+            )}
           </div>
         </div>
       </SectionCard>

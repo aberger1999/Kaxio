@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './hooks/useAuth';
+import { FocusTimerProvider } from './hooks/useFocusTimer';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
@@ -33,38 +34,40 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            {/* Public routes */}
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
-            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-            <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+        <FocusTimerProvider>
+          <BrowserRouter>
+            <Routes>
+              {/* Public routes */}
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
 
-            {/* Protected routes */}
-            <Route
-              element={
-                <ProtectedRoute>
-                  <Layout />
-                </ProtectedRoute>
-              }
-            >
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/calendar" element={<CalendarPage />} />
-              <Route path="/notes" element={<NotesPage />} />
-              <Route path="/notes/:id" element={<NotesPage />} />
-              <Route path="/goals" element={<GoalsPage />} />
-              <Route path="/goals/:id" element={<GoalDetailPage />} />
-              <Route path="/journal" element={<JournalPage />} />
-              <Route path="/habits" element={<HabitsPage />} />
-              <Route path="/focus" element={<FocusTimerPage />} />
-              <Route path="/thoughts" element={<ThoughtBoardPage />} />
-              <Route path="/canvas" element={<CanvasPage />} />
-              <Route path="/todos" element={<TodoPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
-            </Route>
-          </Routes>
-        </BrowserRouter>
+              {/* Protected routes */}
+              <Route
+                element={
+                  <ProtectedRoute>
+                    <Layout />
+                  </ProtectedRoute>
+                }
+              >
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/calendar" element={<CalendarPage />} />
+                <Route path="/notes" element={<NotesPage />} />
+                <Route path="/notes/:id" element={<NotesPage />} />
+                <Route path="/goals" element={<GoalsPage />} />
+                <Route path="/goals/:id" element={<GoalDetailPage />} />
+                <Route path="/journal" element={<JournalPage />} />
+                <Route path="/habits" element={<HabitsPage />} />
+                <Route path="/focus" element={<FocusTimerPage />} />
+                <Route path="/thoughts" element={<ThoughtBoardPage />} />
+                <Route path="/canvas" element={<CanvasPage />} />
+                <Route path="/todos" element={<TodoPage />} />
+                <Route path="/settings" element={<SettingsPage />} />
+              </Route>
+            </Routes>
+          </BrowserRouter>
+        </FocusTimerProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

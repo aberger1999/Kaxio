@@ -99,6 +99,11 @@ async def create_event(
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
 ):
+    reminder_minutes = (
+        body.reminderMinutes
+        if body.reminderMinutes is not None and body.reminderMinutes > 0
+        else None
+    )
     event = CalendarEvent(
         user_id=user.id,
         title=body.title,
@@ -110,7 +115,7 @@ async def create_event(
         category=body.category,
         recurrence=body.recurrence,
         goal_id=body.goalId,
-        reminder_minutes=body.reminderMinutes,
+        reminder_minutes=reminder_minutes,
     )
     db.add(event)
     await db.flush()
@@ -185,10 +190,16 @@ async def update_event(
         event.category = body.category
     if body.recurrence is not None:
         event.recurrence = body.recurrence
-    if body.goalId is not None:
+    field_names = getattr(body, "model_fields_set", set())
+
+    if "goalId" in field_names:
         event.goal_id = body.goalId
-    if body.reminderMinutes is not None:
-        event.reminder_minutes = body.reminderMinutes if body.reminderMinutes > 0 else None
+    if "reminderMinutes" in field_names:
+        event.reminder_minutes = (
+            body.reminderMinutes
+            if body.reminderMinutes is not None and body.reminderMinutes > 0
+            else None
+        )
 
     await db.flush()
     await db.refresh(event)

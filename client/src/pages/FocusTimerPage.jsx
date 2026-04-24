@@ -1,11 +1,11 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Timer, Play, Pause, Square, RotateCcw, Clock,
   CheckCircle2, TrendingUp, Pencil, Trash2,
 } from 'lucide-react';
 import { focusApi } from '../api/client';
-import { useTimer } from '../hooks/useTimer';
+import { useFocusTimer } from '../hooks/useFocusTimer';
 import { useChime } from '../hooks/useChime';
 import CircularTimer from '../components/CircularTimer';
 import FocusSessionModal from '../components/FocusSessionModal';
@@ -26,6 +26,8 @@ function formatDuration(seconds) {
 export default function FocusTimerPage() {
   const queryClient = useQueryClient();
   const playChime = useChime();
+  const timer = useFocusTimer();
+  const { setOnComplete } = timer;
 
   const [selectedDuration, setSelectedDuration] = useState(null);
   const [customMinutes, setCustomMinutes] = useState('');
@@ -33,17 +35,20 @@ export default function FocusTimerPage() {
   const [pendingSession, setPendingSession] = useState(null);
   const [editingSession, setEditingSession] = useState(null);
 
-  const handleComplete = useCallback(() => {
+  const handleComplete = useCallback((completedDuration = 0) => {
     playChime();
     setPendingSession({
-      plannedDuration: selectedDuration,
-      actualDuration: selectedDuration,
+      plannedDuration: completedDuration,
+      actualDuration: completedDuration,
       status: 'completed',
     });
     setShowModal(true);
-  }, [playChime, selectedDuration]);
+  }, [playChime]);
 
-  const timer = useTimer({ onComplete: handleComplete });
+  useEffect(() => {
+    setOnComplete(handleComplete);
+    return () => setOnComplete(null);
+  }, [handleComplete, setOnComplete]);
 
   const { data: sessions = [] } = useQuery({
     queryKey: ['focus-sessions'],
@@ -97,7 +102,7 @@ export default function FocusTimerPage() {
   const handleStop = () => {
     const elapsed = timer.stop();
     setPendingSession({
-      plannedDuration: selectedDuration,
+      plannedDuration: timer.totalTime,
       actualDuration: elapsed,
       status: 'stopped',
     });
