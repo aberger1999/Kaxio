@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_TTL_MINUTES: int = 15
     REFRESH_TOKEN_SECRET_KEY: str = ""
     REFRESH_TOKEN_TTL_DAYS: int = 14
-    REFRESH_COOKIE_NAME: str = "quorex_refresh_token"
+    REFRESH_COOKIE_NAME: str = "kaxio_refresh_token"
     REFRESH_COOKIE_DOMAIN: str = ""
     REFRESH_COOKIE_SAMESITE: str = "lax"
     OLLAMA_BASE_URL: str = "http://localhost:11434"
@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     CHAT_DAILY_REQUEST_LIMIT: int = 100
     ALLOW_NEW_REGISTRATIONS: bool = True
     NOVU_API_KEY: str = ""
+    NOVU_GOAL_REMINDER_DAYS: str = "1,2,3"
     FRONTEND_URL: str = "http://localhost:5173"
 
     CORS_ORIGINS: str = "http://localhost:5173"

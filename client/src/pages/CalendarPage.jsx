@@ -295,7 +295,12 @@ function EventModal({ event, onClose, onSave, onDelete, goals, categories }) {
               <option value="15">15 minutes before</option>
               <option value="30">30 minutes before</option>
               <option value="60">1 hour before</option>
+              <option value="120">2 hours before</option>
+              <option value="360">6 hours before</option>
               <option value="1440">1 day before</option>
+              <option value="2880">2 days before</option>
+              <option value="4320">3 days before</option>
+              <option value="10080">1 week before</option>
             </select>
           </div>
 

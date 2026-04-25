@@ -1,4 +1,5 @@
 import json
+import logging
 from typing import Optional
 
 from pydantic import BaseModel
@@ -10,8 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from server.database import get_db
 from server.auth import get_current_user
 from server.models.focus import FocusSession
+from server.models.notification_preference import NotificationPreference
+from server.services.novu_service import trigger_focus_complete
 
 router = APIRouter(prefix="")
+logger = logging.getLogger(__name__)
 
 
 class FocusCreate(BaseModel):
@@ -102,6 +106,33 @@ async def create_session(
     db.add(session)
     await db.flush()
     await db.refresh(session)
+
+    # Focus completion notifications are best-effort: session creation should not
+    # fail if Novu has a transient issue.
+    if session.status == "completed":
+        prefs_result = await db.execute(
+            select(NotificationPreference).where(
+                NotificationPreference.user_id == user.id
+            )
+        )
+        prefs = prefs_result.scalar_one_or_none()
+        if prefs is None or prefs.focus_notifications_enabled:
+            subscriber_id = (user.email or "").strip().lower()
+            if subscriber_id:
+                duration_minutes = max(1, round((session.actual_duration or 0) / 60))
+                session_title = (session.title or "").strip() or "Focus Session"
+                try:
+                    await trigger_focus_complete(
+                        subscriber_id=subscriber_id,
+                        duration_minutes=duration_minutes,
+                        session_title=session_title,
+                    )
+                except Exception:
+                    logger.exception(
+                        "Failed to send focus completion notification for session %s",
+                        session.id,
+                    )
+
     return JSONResponse(content=session.to_dict(), status_code=201)
 
 

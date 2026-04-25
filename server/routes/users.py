@@ -116,6 +116,8 @@ async def update_profile(
                 first_name=user.first_name,
                 last_name=user.last_name,
                 phone_number=prefs.phone_number if prefs else None,
+                in_app_enabled=prefs.in_app_notifications_enabled if prefs else None,
+                email_enabled=prefs.email_notifications_enabled if prefs else None,
             )
         except Exception:
             logger.exception("Failed to sync Novu subscriber profile for user %s", user.id)

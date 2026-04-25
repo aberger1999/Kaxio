@@ -16,7 +16,13 @@ function clearAuthAndRedirect() {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(SESSION_KEY);
   // Only redirect if not already on login/register page
-  if (!window.location.pathname.startsWith('/login') && !window.location.pathname.startsWith('/register') && !window.location.pathname.startsWith('/forgot-password') && !window.location.pathname.startsWith('/reset-password')) {
+  if (
+    !window.location.pathname.startsWith('/login')
+    && !window.location.pathname.startsWith('/register')
+    && !window.location.pathname.startsWith('/forgot-password')
+    && !window.location.pathname.startsWith('/reset-password')
+    && !window.location.pathname.startsWith('/verify-email')
+  ) {
     window.location.href = '/login';
   }
 }
@@ -239,6 +245,10 @@ export const authApi = {
     request('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) }),
   resetPassword: (token, password) =>
     request('/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, password }) }),
+  verifyEmail: (token) =>
+    request('/auth/verify-email', { method: 'POST', body: JSON.stringify({ token }) }),
+  resendVerification: (email) =>
+    request('/auth/resend-verification', { method: 'POST', body: JSON.stringify({ email }) }),
 };
 
 // Chat

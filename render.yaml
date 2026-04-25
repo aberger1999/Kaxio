@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: quorex-staging
+    name: kaxio-staging
     runtime: docker
     plan: starter
     autoDeploy: true
@@ -21,7 +21,7 @@ services:
       - key: CORS_ORIGINS
         value: https://staging-app.example.com
       - key: ALLOWED_HOSTS
-        value: quorex-staging.onrender.com
+        value: kaxio-staging.onrender.com
       - key: DATABASE_URL
         sync: false
       - key: JWT_SECRET_KEY
@@ -32,7 +32,7 @@ services:
         sync: false
 
   - type: web
-    name: quorex-production
+    name: kaxio-production
     runtime: docker
     plan: starter
     autoDeploy: false

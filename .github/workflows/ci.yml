@@ -84,4 +84,4 @@ jobs:
         with:
           context: .
           push: false
-          tags: quorex:ci
+          tags: kaxio:ci

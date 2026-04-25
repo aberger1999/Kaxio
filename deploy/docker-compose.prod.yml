@@ -1,9 +1,9 @@
 version: "3.9"
 
 services:
-  quorex:
-    image: ghcr.io/your-org/quorex:latest
-    container_name: quorex-api
+  kaxio:
+    image: ghcr.io/your-org/kaxio:latest
+    container_name: kaxio-api
     restart: unless-stopped
     ports:
       - "5000:5000"

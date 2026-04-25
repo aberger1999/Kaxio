@@ -1,6 +1,6 @@
 # Production Runbook
 
-This runbook covers deployment, rollback, and incident response for Quorex.
+This runbook covers deployment, rollback, and incident response for Kaxio.
 
 ## 1) Preconditions
 

@@ -1,6 +1,6 @@
 # Novu Notification Workflows Setup Guide
 
-Complete guide for configuring all Quorex notification workflows in the Novu dashboard.
+Complete guide for configuring all Kaxio notification workflows in the Novu dashboard.
 
 ---
 
@@ -34,9 +34,9 @@ Novu workflows define the structure and content of notifications sent to users. 
 - **What** content the notification contains (templates with dynamic variables)
 - **Where** it's delivered (in-app inbox, email, SMS)
 
-### Why Quorex Needs Workflows
+### Why Kaxio Needs Workflows
 
-Quorex uses Novu to deliver eight types of notifications across the productivity suite:
+Kaxio uses Novu to deliver eight types of notifications across the productivity suite:
 
 | Area | Purpose |
 |------|---------|
@@ -100,7 +100,7 @@ Configure providers in **Integrations** in the Novu dashboard.
 
 ### 4. Subscriber Identity
 
-Quorex identifies subscribers using the user's ID (with email as fallback):
+Kaxio identifies subscribers using the user's ID (with email as fallback):
 
 ```javascript
 // Frontend (NotificationInbox.jsx)
@@ -186,7 +186,7 @@ The workflow editor shows a visual pipeline. Add steps by clicking **+** between
 2. Select **SMS** from the channel list
 3. Write a concise message (SMS has character limits):
    ```handlebars
-   Quorex: Time to log your {{habitName}} habit!
+   Kaxio: Time to log your {{habitName}} habit!
    ```
 
 ### Step 4: Publish the Workflow
@@ -239,14 +239,14 @@ Time to log your habit: {{habitName}}
 
 Email subject:
 ```handlebars
-Quorex — Don't forget: {{habitName}}
+Kaxio — Don't forget: {{habitName}}
 ```
 
 Email body:
 ```html
 <h2>Habit Reminder</h2>
 <p>Hey! It's time to check in on your <strong>{{habitName}}</strong> habit.</p>
-<p>Open Quorex to log your progress and keep your streak going.</p>
+<p>Open Kaxio to log your progress and keep your streak going.</p>
 ```
 
 ---
@@ -292,14 +292,14 @@ Your goal "{{goalName}}" deadline is {{deadline}}
 
 Email subject:
 ```handlebars
-Quorex — Goal deadline approaching: {{goalName}}
+Kaxio — Goal deadline approaching: {{goalName}}
 ```
 
 Email body:
 ```html
 <h2>Goal Deadline Alert</h2>
 <p>Your goal <strong>{{goalName}}</strong> has a deadline on <strong>{{deadline}}</strong>.</p>
-<p>Open Quorex to review your milestones and make sure you're on track.</p>
+<p>Open Kaxio to review your milestones and make sure you're on track.</p>
 ```
 
 ---
@@ -342,14 +342,14 @@ Time to write in your journal today!
 
 Email subject:
 ```
-Quorex — Your daily journal prompt
+Kaxio — Your daily journal prompt
 ```
 
 Email body:
 ```html
 <h2>Daily Journal</h2>
 <p>Take a few minutes to reflect on your day. Writing consistently builds clarity and self-awareness.</p>
-<p>Open Quorex to start your journal entry.</p>
+<p>Open Kaxio to start your journal entry.</p>
 ```
 
 ---
@@ -433,7 +433,7 @@ Your weekly review is ready — take a look at your progress!
 
 Email subject:
 ```
-Quorex — Your weekly review is ready
+Kaxio — Your weekly review is ready
 ```
 
 Email body:
@@ -445,7 +445,7 @@ Email body:
   <li>Are your goals on track?</li>
   <li>What did you learn from your journal entries?</li>
 </ul>
-<p>Open Quorex to see your weekly summary.</p>
+<p>Open Kaxio to see your weekly summary.</p>
 ```
 
 ---
@@ -466,7 +466,7 @@ password-reset
 | Field | Type | Description | Example |
 |-------|------|-------------|---------|
 | `userName` | string | User's display name | `"Alex"` |
-| `resetLink` | string | Full URL for password reset | `"https://quorex.app/reset-password?token=abc123..."` |
+| `resetLink` | string | Full URL for password reset | `"https://kaxio.io/reset-password?token=abc123..."` |
 
 **Backend trigger call:**
 ```python
@@ -488,7 +488,7 @@ await trigger_password_reset(user.email, user.name, reset_link)
 
 Email subject:
 ```handlebars
-Quorex — Password reset for {{userName}}
+Kaxio — Password reset for {{userName}}
 ```
 
 Email body:
@@ -556,7 +556,7 @@ Reminder: {{eventTitle}} starts in {{minutesBefore}} minutes
 
 Email subject:
 ```handlebars
-Quorex — {{eventTitle}} starts in {{minutesBefore}} minutes
+Kaxio — {{eventTitle}} starts in {{minutesBefore}} minutes
 ```
 
 Email body:
@@ -564,7 +564,7 @@ Email body:
 <h2>Event Reminder</h2>
 <p>Hi {{userName}},</p>
 <p>Your event <strong>{{eventTitle}}</strong> starts in <strong>{{minutesBefore}} minutes</strong> (at {{eventTime}}).</p>
-<p>Open Quorex to view the event details.</p>
+<p>Open Kaxio to view the event details.</p>
 ```
 
 ---
@@ -633,7 +633,7 @@ Good morning {{userName}}! You have {{totalEvents}} event{{#if (gt totalEvents 1
 
 Email subject:
 ```handlebars
-Quorex — Your schedule for today ({{totalEvents}} events)
+Kaxio — Your schedule for today ({{totalEvents}} events)
 ```
 
 Email body:
@@ -645,7 +645,7 @@ Email body:
   <li><strong>{{this.time}}</strong> — {{this.title}}</li>
   {{/each}}
 </ul>
-<p>Open Quorex to view full details or make changes.</p>
+<p>Open Kaxio to view full details or make changes.</p>
 ```
 
 ---
@@ -661,7 +661,7 @@ Before relying on backend integration, verify each workflow works by triggering 
 3. Fill in the **Subscriber ID** — use your own user ID or email (must match a subscriber in Novu)
 4. Fill in the **Payload** with test values matching the fields above
 5. Click **Trigger** and check:
-   - In-app: Look for the notification in the Quorex UI bell icon
+   - In-app: Look for the notification in the Kaxio UI bell icon
    - Email: Check the inbox of the email associated with the subscriber
 
 ### Method 2: cURL Commands
@@ -787,7 +787,7 @@ curl -X POST https://api.novu.co/v1/events/trigger \
 
 ### Verifying In-App Notifications
 
-1. Log in to Quorex in your browser
+1. Log in to Kaxio in your browser
 2. Trigger a workflow (via dashboard or cURL)
 3. The bell icon in the top-right should show an unread badge
 4. Click the bell to open the notification inbox and see the message
@@ -857,7 +857,7 @@ If you see `"acknowledged": false` or an error, check the [Troubleshooting](#tro
 
 **Cause:** The subscriber ID used in the backend trigger doesn't match the subscriber ID the frontend connects with.
 
-**How Quorex identifies subscribers:**
+**How Kaxio identifies subscribers:**
 - **Frontend** (`NotificationInbox.jsx`): `String(user.id || user.email)`
 - **Backend** (`novu_service.py`): Receives `subscriber_id` as a parameter
 
@@ -895,7 +895,7 @@ Then restart the backend server.
 
 **Possible causes:**
 1. No SMS provider configured — go to **Integrations** and set up Twilio, Vonage, etc.
-2. Subscriber has no phone number — the user must set their phone number in Quorex Settings (stored in `notification_preferences.phone_number`)
+2. Subscriber has no phone number — the user must set their phone number in Kaxio Settings (stored in `notification_preferences.phone_number`)
 3. SMS step not added to the workflow
 
 ### Notification Preferences Not Respected

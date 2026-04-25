@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { User, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { User, Mail, Lock, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -49,7 +49,12 @@ export default function RegisterPage() {
       setServerError(result.error);
       return;
     }
-    navigate('/', { replace: true });
+    if (result.requiresEmailVerification) {
+      const targetEmail = encodeURIComponent(result.email || email.trim().toLowerCase());
+      navigate(`/verify-email?email=${targetEmail}`, { replace: true });
+      return;
+    }
+    navigate('/dashboard', { replace: true });
   }
 
   const inputClass = (field) =>
@@ -64,11 +69,20 @@ export default function RegisterPage() {
       <div className="w-full max-w-md">
         {/* Logo / Brand */}
         <div className="text-center mb-8">
+          <div className="mb-5 flex justify-center">
+            <Link
+              to="/"
+              className="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-slate-400 hover:text-primary dark:hover:text-indigo-400 transition-colors"
+            >
+              <ArrowLeft size={14} />
+              Back to home
+            </Link>
+          </div>
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 text-white font-bold text-2xl mb-4">
             Q
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
-            Quorex
+            Kaxio
           </h1>
           <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">
             Create your account

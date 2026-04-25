@@ -9,17 +9,23 @@ from server.config import settings
 from server.database import get_db
 from server.auth import (
     create_access_token,
+    create_email_verification_token,
     create_refresh_token,
     create_reset_token,
     generate_token_id,
     hash_password,
     verify_password,
+    verify_email_verification_token,
     verify_refresh_token,
     verify_reset_token,
 )
 from server.models.refresh_token import RefreshToken
 from server.models.user import User
-from server.services.novu_service import trigger_password_reset, sync_subscriber_profile
+from server.services.novu_service import (
+    trigger_email_verification,
+    trigger_password_reset,
+    sync_subscriber_profile,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +52,14 @@ class ForgotPasswordBody(BaseModel):
 class ResetPasswordBody(BaseModel):
     token: str
     password: str
+
+
+class VerifyEmailBody(BaseModel):
+    token: str
+
+
+class ResendVerificationBody(BaseModel):
+    email: EmailStr
 
 
 def _cookie_secure() -> bool:
@@ -84,6 +98,21 @@ def _extract_client_metadata(request: Request) -> tuple[str | None, str | None]:
         client_ip = request.client.host
     user_agent = request.headers.get("user-agent")
     return client_ip, user_agent
+
+
+def _verification_link_for_user(user: User) -> str:
+    token = create_email_verification_token(user.id, user.password_hash, user.email)
+    return f"{settings.FRONTEND_URL}/verify-email/{token}"
+
+
+async def _send_verification_email(user: User) -> None:
+    verification_link = _verification_link_for_user(user)
+    logger.info("Email verification link for %s: %s", user.email, verification_link)
+    await trigger_email_verification(
+        user.email,
+        user.display_name,
+        verification_link,
+    )
 
 
 async def _issue_session_tokens(
@@ -126,7 +155,7 @@ async def _issue_session_tokens(
 
 
 @router.post("/register")
-async def register(body: RegisterBody, request: Request, response: Response, db: AsyncSession = Depends(get_db)):
+async def register(body: RegisterBody, db: AsyncSession = Depends(get_db)):
     if not settings.ALLOW_NEW_REGISTRATIONS:
         raise HTTPException(
             status_code=403,
@@ -152,6 +181,7 @@ async def register(body: RegisterBody, request: Request, response: Response, db:
         last_name=last_name,
         email=email,
         password_hash=hash_password(body.password),
+        is_email_verified=False,
     )
     db.add(user)
     await db.flush()
@@ -162,11 +192,22 @@ async def register(body: RegisterBody, request: Request, response: Response, db:
             email=user.email,
             first_name=user.first_name,
             last_name=user.last_name,
+            in_app_enabled=True,
+            email_enabled=True,
         )
     except Exception:
         logger.exception("Failed to sync Novu subscriber profile during registration for user %s", user.id)
 
-    return await _issue_session_tokens(user=user, db=db, request=request, response=response)
+    try:
+        await _send_verification_email(user)
+    except Exception:
+        logger.exception("Failed to send verification email via Novu for user %s", user.id)
+
+    return {
+        "message": "Registration successful. Please verify your email before signing in.",
+        "requiresEmailVerification": True,
+        "email": user.email,
+    }
 
 
 @router.post("/login")
@@ -177,8 +218,51 @@ async def login(body: LoginBody, request: Request, response: Response, db: Async
 
     if not user or not verify_password(body.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password")
+    if not user.is_email_verified:
+        raise HTTPException(
+            status_code=403,
+            detail="Please verify your email before signing in.",
+        )
 
     return await _issue_session_tokens(user=user, db=db, request=request, response=response)
+
+
+@router.post("/verify-email")
+async def verify_email(body: VerifyEmailBody, db: AsyncSession = Depends(get_db)):
+    claims = verify_email_verification_token(body.token)
+    if not claims:
+        raise HTTPException(status_code=400, detail="Invalid or expired verification link.")
+
+    result = await db.execute(select(User).where(User.id == claims["user_id"]))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid or expired verification link.")
+    if user.email.strip().lower() != claims["email"]:
+        raise HTTPException(status_code=400, detail="Invalid or expired verification link.")
+    if user.password_hash[:10] != claims["fingerprint"]:
+        raise HTTPException(status_code=400, detail="Invalid or expired verification link.")
+
+    if user.is_email_verified:
+        return {"message": "Email is already verified."}
+
+    user.is_email_verified = True
+    await db.flush()
+    return {"message": "Email verified successfully. You can now sign in."}
+
+
+@router.post("/resend-verification")
+async def resend_verification(body: ResendVerificationBody, db: AsyncSession = Depends(get_db)):
+    email = str(body.email).strip().lower()
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
+
+    if user and not user.is_email_verified:
+        try:
+            await _send_verification_email(user)
+        except Exception:
+            logger.exception("Failed to resend verification email via Novu for user %s", user.id)
+
+    return {"message": "If an account exists and is pending verification, a verification email has been sent."}
 
 
 @router.post("/refresh")
