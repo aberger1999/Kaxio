@@ -9,7 +9,7 @@ import {
 } from 'react';
 
 const FocusTimerContext = createContext(null);
-const FOCUS_TIMER_STORAGE_KEY = 'quorex_focus_timer_v1';
+const FOCUS_TIMER_STORAGE_KEY = 'kaxio_focus_timer_v1';
 
 function safeReadTimerState() {
   try {

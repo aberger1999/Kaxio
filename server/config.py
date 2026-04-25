@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_TTL_MINUTES: int = 15
     REFRESH_TOKEN_SECRET_KEY: str = ""
     REFRESH_TOKEN_TTL_DAYS: int = 14
-    REFRESH_COOKIE_NAME: str = "quorex_refresh_token"
+    REFRESH_COOKIE_NAME: str = "kaxio_refresh_token"
     REFRESH_COOKIE_DOMAIN: str = ""
     REFRESH_COOKIE_SAMESITE: str = "lax"
     OLLAMA_BASE_URL: str = "http://localhost:11434"

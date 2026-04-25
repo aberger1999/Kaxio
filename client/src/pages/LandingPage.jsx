@@ -260,7 +260,7 @@ export default function LandingPage() {
                 Q
               </div>
               <div>
-                <p className="font-semibold tracking-tight">Quorex</p>
+                <p className="font-semibold tracking-tight">Kaxio</p>
                 <p className="text-xs text-slate-300">Integrated productivity intelligence</p>
               </div>
             </div>
@@ -297,7 +297,7 @@ export default function LandingPage() {
                   </span>
                 </h1>
                 <p className="mt-5 text-slate-300 text-lg max-w-xl">
-                  Quorex blends planning, execution, and AI guidance into a single operating layer so you can
+                  Kaxio blends planning, execution, and AI guidance into a single operating layer so you can
                   move faster without losing clarity.
                 </p>
                 <div className="mt-7 flex flex-wrap items-center gap-3">
@@ -415,7 +415,7 @@ export default function LandingPage() {
                 <p className="font-medium">Integrations and platform stack</p>
               </div>
               <p className="text-slate-300 mt-2">
-                Quorex is designed to plug into modern services while keeping a clean, secure architecture.
+                Kaxio is designed to plug into modern services while keeping a clean, secure architecture.
               </p>
               <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3 mt-6">
                 {integrations.map((integration, idx) => (
@@ -491,7 +491,7 @@ export default function LandingPage() {
             <div className="rounded-2xl border border-violet-400/35 bg-gradient-to-r from-violet-600/20 via-indigo-600/15 to-cyan-600/15 p-8 text-center">
               <h3 className="text-2xl md:text-3xl font-semibold tracking-tight">Build your system once. Scale it daily.</h3>
               <p className="text-slate-200 mt-2">
-                Join Quorex and turn scattered productivity into compounding momentum.
+                Join Kaxio and turn scattered productivity into compounding momentum.
               </p>
               <div className="mt-6 flex justify-center gap-3 flex-wrap">
                 <Link to="/register" className="px-5 py-2.5 rounded-lg btn-gradient">

@@ -1,6 +1,6 @@
 # Render Deployment Guide
 
-This guide wires Quorex deployment to Render using the existing Docker-based setup.
+This guide wires Kaxio deployment to Render using the existing Docker-based setup.
 
 ## 0) Important in Render UI
 
@@ -18,8 +18,8 @@ This app uses FastAPI/Uvicorn.
 
 Create two Render web services from this repo:
 
-- `quorex-staging`
-- `quorex-production`
+- `kaxio-staging`
+- `kaxio-production`
 
 Both can use the root `Dockerfile`. Configure:
 
@@ -28,7 +28,7 @@ Both can use the root `Dockerfile`. Configure:
 
 ## 2) Required Environment Variables in Render
 
-Staging (`quorex-staging`) baseline:
+Staging (`kaxio-staging`) baseline:
 
 - `ENVIRONMENT=staging`
 - `AUTO_CREATE_TABLES=false`
@@ -36,9 +36,9 @@ Staging (`quorex-staging`) baseline:
 - `LOG_JSON=true`
 - `FORCE_HTTPS=true`
 - `CORS_ORIGINS=https://staging-app.example.com` (replace)
-- `ALLOWED_HOSTS=quorex-staging.onrender.com` (replace if custom domain)
+- `ALLOWED_HOSTS=kaxio-staging.onrender.com` (replace if custom domain)
 
-Production (`quorex-production`) baseline:
+Production (`kaxio-production`) baseline:
 
 - `ENVIRONMENT=production`
 - `AUTO_CREATE_TABLES=false`

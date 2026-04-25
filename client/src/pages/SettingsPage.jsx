@@ -536,7 +536,7 @@ function NotificationsSection({ showToast }) {
             icon={Bell}
             color="text-violet-500 bg-violet-50 dark:bg-violet-500/10"
             label="In-App Notifications"
-            description="Show notifications in the Quorex bell inbox"
+            description="Show notifications in the Kaxio bell inbox"
             toggleKey="inAppNotificationsEnabled"
             form={form}
             onToggle={handleToggle}

@@ -58,7 +58,7 @@ redoc_url = "/redoc" if settings.ENABLE_API_DOCS else None
 openapi_url = "/openapi.json" if settings.ENABLE_API_DOCS else None
 
 app = FastAPI(
-    title="Quorex",
+    title="Kaxio",
     lifespan=lifespan,
     docs_url=docs_url,
     redoc_url=redoc_url,

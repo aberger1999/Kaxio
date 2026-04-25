@@ -57,7 +57,7 @@ export default function Sidebar() {
             Q
           </div>
           <span className="text-lg font-bold tracking-tight bg-gradient-to-r from-violet-400 to-purple-400 bg-clip-text text-transparent">
-            Quorex
+            Kaxio
           </span>
         </div>
       </div>

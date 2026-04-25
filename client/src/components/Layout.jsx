@@ -60,7 +60,7 @@ export default function Layout() {
               </div>
             </div>
             <footer className="sticky-footer">
-              &copy; 2026 Quorex. All rights reserved. Proprietary and confidential.
+              &copy; 2026 Kaxio. All rights reserved. Proprietary and confidential.
             </footer>
           </>
         )}
