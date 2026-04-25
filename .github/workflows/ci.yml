@@ -35,7 +35,8 @@ jobs:
       - name: Security audit (Python dependencies)
         run: |
           pip install pip-audit
-          pip-audit --desc
+          # Audit only application dependencies; the runner's pip version is managed by GitHub.
+          pip-audit -r requirements.txt --desc
 
   frontend:
     name: Frontend checks
