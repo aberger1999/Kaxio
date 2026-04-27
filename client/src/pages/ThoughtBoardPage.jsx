@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import {
   Plus, MessageSquare, Trash2, ChevronUp, ChevronDown,
   ArrowLeft, X, Clock, TrendingUp, Flame,
@@ -533,10 +534,14 @@ function PostDetail({ postId, onBack }) {
 
 // ── Post Feed ───────────────────────────────────────────
 
-function PostFeed({ selectedCommunity, communities }) {
+function PostFeed({ selectedCommunity, communities, initialPostId }) {
   const [sort, setSort] = useState('new');
   const [showNewPost, setShowNewPost] = useState(false);
-  const [selectedPostId, setSelectedPostId] = useState(null);
+  const [selectedPostId, setSelectedPostId] = useState(initialPostId);
+
+  useEffect(() => {
+    setSelectedPostId(initialPostId);
+  }, [initialPostId]);
 
   const params = {};
   if (selectedCommunity) params.community = selectedCommunity;
@@ -619,7 +624,9 @@ function PostFeed({ selectedCommunity, communities }) {
 // ── Main Page ───────────────────────────────────────────
 
 export default function ThoughtBoardPage() {
+  const [searchParams] = useSearchParams();
   const [selectedCommunity, setSelectedCommunity] = useState(null);
+  const initialPostId = searchParams.get('postId');
 
   const { data: communities = [] } = useQuery({
     queryKey: ['communities'],
@@ -636,7 +643,11 @@ export default function ThoughtBoardPage() {
       <div className="flex-1 overflow-y-auto p-6">
         <div className="max-w-2xl mx-auto">
           <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white mb-6">Thought Board</h1>
-          <PostFeed selectedCommunity={selectedCommunity} communities={communities} />
+          <PostFeed
+            selectedCommunity={selectedCommunity}
+            communities={communities}
+            initialPostId={initialPostId}
+          />
         </div>
       </div>
     </div>

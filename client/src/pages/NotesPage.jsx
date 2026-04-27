@@ -23,6 +23,25 @@ function getTileColorClasses(color) {
   return `${c.light} ${c.dark}`;
 }
 
+function getNotePreview(content) {
+  if (!content) return { type: 'text', text: '' };
+
+  const doc = new DOMParser().parseFromString(content, 'text/html');
+  const listItems = Array.from(doc.querySelectorAll('li'))
+    .map((item) => item.textContent?.trim())
+    .filter(Boolean)
+    .slice(0, 3);
+
+  if (listItems.length > 0) {
+    return { type: 'bullets', items: listItems };
+  }
+
+  return {
+    type: 'text',
+    text: (doc.body.textContent || '').trim().slice(0, 150),
+  };
+}
+
 function NoteEditor({ note, onClose, goals }) {
   const qc = useQueryClient();
   const [title, setTitle] = useState(note?.title || '');
@@ -255,6 +274,7 @@ export default function NotesPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {notes.map((note) => {
           const colorClasses = getTileColorClasses(note.color);
+          const preview = getNotePreview(note.content);
           return (
             <button
               key={note.id}
@@ -269,9 +289,20 @@ export default function NotesPage() {
                 </h3>
                 {note.isPinned && <Pin size={14} className="text-amber-500 shrink-0" />}
               </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-3">
-                {note.content?.replace(/<[^>]*>/g, '').slice(0, 150)}
-              </p>
+              {preview.type === 'bullets' ? (
+                <div className="mt-2 space-y-0.5 text-xs text-gray-500 dark:text-gray-400">
+                  {preview.items.map((item, idx) => (
+                    <div key={`${idx}-${item}`} className="flex gap-1.5 min-w-0">
+                      <span className="shrink-0 leading-5">&bull;</span>
+                      <span className="truncate leading-5">{item}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-3">
+                  {preview.text}
+                </p>
+              )}
               {note.tags && (
                 <div className="flex gap-1 mt-2 flex-wrap">
                   {note.tags.split(',').filter(Boolean).map((tag) => (

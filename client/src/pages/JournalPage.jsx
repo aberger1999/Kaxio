@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Save, Check, Calendar, Target, Activity, CheckCircle } from 'lucide-react';
 import { journalApi, calendarApi, goalsApi, habitsApi } from '../api/client';
 import RichTextEditor from '../components/RichTextEditor';
@@ -13,7 +14,11 @@ function formatDate(date) {
 
 export default function JournalPage() {
   const queryClient = useQueryClient();
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [searchParams] = useSearchParams();
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const dateParam = searchParams.get('date');
+    return dateParam ? new Date(`${dateParam}T00:00:00`) : new Date();
+  });
   const dateStr = formatDate(selectedDate);
   const editorRef = useRef(null);
   const [morningIntentions, setMorningIntentions] = useState('');

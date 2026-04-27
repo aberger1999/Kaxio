@@ -1,4 +1,5 @@
 from datetime import datetime
+import json
 from typing import Optional
 
 from pydantic import BaseModel
@@ -26,6 +27,7 @@ class EventCreate(BaseModel):
     recurrence: Optional[str] = ""
     goalId: Optional[int] = None
     reminderMinutes: Optional[int] = None
+    reminderMinutesList: Optional[list[int]] = None
 
 
 class EventUpdate(BaseModel):
@@ -39,6 +41,29 @@ class EventUpdate(BaseModel):
     recurrence: Optional[str] = None
     goalId: Optional[int] = None
     reminderMinutes: Optional[int] = None
+    reminderMinutesList: Optional[list[int]] = None
+
+
+def _normalize_reminders(
+    reminder_minutes: int | None,
+    reminder_minutes_list: list[int] | None,
+) -> list[int]:
+    """Return sorted, unique reminder offsets in minutes."""
+    raw_reminders = reminder_minutes_list
+    if raw_reminders is None:
+        raw_reminders = [reminder_minutes] if reminder_minutes is not None else []
+
+    reminders = []
+    for reminder in raw_reminders:
+        if reminder is None:
+            continue
+        try:
+            value = int(reminder)
+        except (TypeError, ValueError):
+            continue
+        if value > 0:
+            reminders.append(value)
+    return sorted(set(reminders))
 
 
 @router.get("/calendar")
@@ -99,11 +124,7 @@ async def create_event(
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    reminder_minutes = (
-        body.reminderMinutes
-        if body.reminderMinutes is not None and body.reminderMinutes > 0
-        else None
-    )
+    reminder_offsets = _normalize_reminders(body.reminderMinutes, body.reminderMinutesList)
     event = CalendarEvent(
         user_id=user.id,
         title=body.title,
@@ -115,7 +136,8 @@ async def create_event(
         category=body.category,
         recurrence=body.recurrence,
         goal_id=body.goalId,
-        reminder_minutes=reminder_minutes,
+        reminder_minutes=reminder_offsets[0] if reminder_offsets else None,
+        reminder_minutes_list=json.dumps(reminder_offsets) if reminder_offsets else "",
     )
     db.add(event)
     await db.flush()
@@ -194,12 +216,13 @@ async def update_event(
 
     if "goalId" in field_names:
         event.goal_id = body.goalId
-    if "reminderMinutes" in field_names:
-        event.reminder_minutes = (
-            body.reminderMinutes
-            if body.reminderMinutes is not None and body.reminderMinutes > 0
-            else None
+    if "reminderMinutesList" in field_names or "reminderMinutes" in field_names:
+        reminder_offsets = _normalize_reminders(
+            body.reminderMinutes,
+            body.reminderMinutesList if "reminderMinutesList" in field_names else None,
         )
+        event.reminder_minutes = reminder_offsets[0] if reminder_offsets else None
+        event.reminder_minutes_list = json.dumps(reminder_offsets) if reminder_offsets else ""
 
     await db.flush()
     await db.refresh(event)

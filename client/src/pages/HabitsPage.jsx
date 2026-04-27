@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { habitsApi } from '../api/client';
 import { formatDate, getMonday, calcHours, isCustomCompleted, DAY_LABELS, PRESET_CATEGORIES } from '../utils/habits';
@@ -8,7 +9,11 @@ import TrackHabitModal from '../components/TrackHabitModal';
 
 export default function HabitsPage() {
   const queryClient = useQueryClient();
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [searchParams] = useSearchParams();
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const dateParam = searchParams.get('date');
+    return dateParam ? new Date(`${dateParam}T00:00:00`) : new Date();
+  });
   const [modalOpen, setModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
 

@@ -2,7 +2,7 @@
 APScheduler-based background tasks for calendar notifications.
 
 - check_event_reminders: runs every minute, triggers reminders for events
-  whose start time minus reminder_minutes falls within the current minute.
+  whose start time minus a configured reminder offset falls within the current minute.
 - send_daily_schedules: runs every minute, checks if any user's configured
   reminder_time matches the current hour:minute and sends their daily schedule.
 - check_goal_deadline_reminders: sends reminders for active goals whose
@@ -16,7 +16,7 @@ import logging
 from datetime import datetime, timedelta, timezone, time as dt_time, date as dt_date
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, or_
 
 from server.database import AsyncSessionLocal
 from server.models.calendar_event import CalendarEvent
@@ -150,14 +150,16 @@ async def check_event_reminders():
 
     async with AsyncSessionLocal() as db:
         try:
-            # Find events with reminders set, where start - reminder_minutes is within the current minute window
+            # Find events with reminders set, where start - reminder offset is within this minute.
             result = await db.execute(
                 select(CalendarEvent, User)
                 .join(User, CalendarEvent.user_id == User.id)
                 .where(
                     and_(
-                        CalendarEvent.reminder_minutes.isnot(None),
-                        CalendarEvent.reminder_minutes > 0,
+                        or_(
+                            CalendarEvent.reminder_minutes.isnot(None),
+                            CalendarEvent.reminder_minutes_list != "",
+                        ),
                         CalendarEvent.start > now,
                     )
                 )
@@ -165,8 +167,12 @@ async def check_event_reminders():
             rows = result.all()
 
             for event, user in rows:
-                reminder_time = event.start - timedelta(minutes=event.reminder_minutes)
-                if window_start <= reminder_time <= window_end:
+                due_offsets = [
+                    offset
+                    for offset in event.reminder_offsets
+                    if window_start <= event.start - timedelta(minutes=offset) <= window_end
+                ]
+                for minutes_before in due_offsets:
                     # Check if user has calendar reminders enabled
                     prefs_result = await db.execute(
                         select(NotificationPreference).where(
@@ -186,12 +192,12 @@ async def check_event_reminders():
                             subscriber_id=subscriber_id,
                             event_title=event.title,
                             event_time=event.start.isoformat(),
-                            minutes_before=event.reminder_minutes,
+                            minutes_before=minutes_before,
                             user_name=user.display_name,
                         )
                         logger.info(
-                            "Sent event reminder for '%s' to user %s",
-                            event.title, user.id,
+                            "Sent event reminder for '%s' to user %s (%d minutes before)",
+                            event.title, user.id, minutes_before,
                         )
                     except Exception:
                         logger.exception(

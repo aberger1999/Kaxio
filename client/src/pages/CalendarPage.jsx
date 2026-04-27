@@ -1,5 +1,6 @@
-import { useState, useCallback, useMemo, useRef, cloneElement, Children } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef, cloneElement, Children } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { Calendar as BigCalendar, dateFnsLocalizer } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
 import enUS from 'date-fns/locale/en-US';
@@ -28,6 +29,28 @@ const PRESET_COLORS = [
 
 const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
+const REMINDER_OPTIONS = [
+  { value: 15, label: '15 minutes before' },
+  { value: 30, label: '30 minutes before' },
+  { value: 60, label: '1 hour before' },
+  { value: 120, label: '2 hours before' },
+  { value: 360, label: '6 hours before' },
+  { value: 1440, label: '1 day before' },
+  { value: 2880, label: '2 days before' },
+  { value: 4320, label: '3 days before' },
+  { value: 10080, label: '1 week before' },
+];
+
+function parseDateParam(dateParam) {
+  if (!dateParam) return new Date();
+  const date = new Date(`${dateParam}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? new Date() : date;
+}
+
+function getReminderLabel(minutes) {
+  return REMINDER_OPTIONS.find((option) => option.value === minutes)?.label || `${minutes} minutes before`;
+}
+
 function parseRecurrence(str) {
   if (!str) return { type: 'none', days: [], endDate: '' };
   try { return { type: 'none', days: [], endDate: '', ...JSON.parse(str) }; }
@@ -38,6 +61,11 @@ function EventModal({ event, onClose, onSave, onDelete, goals, categories }) {
   const colorInputRef = useRef(null);
   const [showNewCategory, setShowNewCategory] = useState(false);
   const [newCategory, setNewCategory] = useState('');
+  const initialReminders = event?.reminderMinutesList?.length
+    ? event.reminderMinutesList
+    : event?.reminderMinutes
+      ? [event.reminderMinutes]
+      : [];
 
   const existingRec = parseRecurrence(event?.recurrence);
   const [form, setForm] = useState({
@@ -53,7 +81,8 @@ function EventModal({ event, onClose, onSave, onDelete, goals, categories }) {
     color: event?.color || '#3b82f6',
     category: event?.category || '',
     goalId: event?.goalId || '',
-    reminderMinutes: event?.reminderMinutes ?? '',
+    reminderMinutesList: initialReminders,
+    nextReminderMinutes: '',
     recurrenceType: existingRec.type,
     recurrenceDays: existingRec.days || [],
     recurrenceEndDate: existingRec.endDate || '',
@@ -89,6 +118,23 @@ function EventModal({ event, onClose, onSave, onDelete, goals, categories }) {
     setForm({ ...form, recurrenceType: newType, recurrenceDays: days });
   };
 
+  const addReminder = () => {
+    const nextReminder = Number(form.nextReminderMinutes);
+    if (!nextReminder) return;
+    setForm({
+      ...form,
+      reminderMinutesList: [...new Set([...form.reminderMinutesList, nextReminder])].sort((a, b) => a - b),
+      nextReminderMinutes: '',
+    });
+  };
+
+  const removeReminder = (minutes) => {
+    setForm({
+      ...form,
+      reminderMinutesList: form.reminderMinutesList.filter((reminder) => reminder !== minutes),
+    });
+  };
+
   const toggleDay = (dayIndex) => {
     const days = form.recurrenceDays.includes(dayIndex)
       ? form.recurrenceDays.filter((d) => d !== dayIndex)
@@ -98,7 +144,13 @@ function EventModal({ event, onClose, onSave, onDelete, goals, categories }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const { recurrenceType, recurrenceDays, recurrenceEndDate, ...rest } = form;
+    const {
+      recurrenceType,
+      recurrenceDays,
+      recurrenceEndDate,
+      nextReminderMinutes: _nextReminderMinutes,
+      ...rest
+    } = form;
 
     const recurrence = recurrenceType === 'none'
       ? ''
@@ -114,7 +166,8 @@ function EventModal({ event, onClose, onSave, onDelete, goals, categories }) {
       ...rest,
       recurrence,
       goalId: rest.goalId || null,
-      reminderMinutes: rest.reminderMinutes ? Number(rest.reminderMinutes) : null,
+      reminderMinutes: rest.reminderMinutesList[0] || null,
+      reminderMinutesList: rest.reminderMinutesList,
     });
   };
 
@@ -284,24 +337,52 @@ function EventModal({ event, onClose, onSave, onDelete, goals, categories }) {
           {/* Reminder */}
           <div>
             <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
-              <Bell size={12} /> Reminder
+              <Bell size={12} /> Reminders
             </span>
-            <select
-              value={form.reminderMinutes}
-              onChange={(e) => setForm({ ...form, reminderMinutes: e.target.value })}
-              className="w-full border dark:border-slate-600 rounded-lg px-3 py-2 text-sm dark:bg-slate-800 dark:text-white mt-1"
-            >
-              <option value="">No reminder</option>
-              <option value="15">15 minutes before</option>
-              <option value="30">30 minutes before</option>
-              <option value="60">1 hour before</option>
-              <option value="120">2 hours before</option>
-              <option value="360">6 hours before</option>
-              <option value="1440">1 day before</option>
-              <option value="2880">2 days before</option>
-              <option value="4320">3 days before</option>
-              <option value="10080">1 week before</option>
-            </select>
+            <div className="flex gap-2 mt-1">
+              <select
+                value={form.nextReminderMinutes}
+                onChange={(e) => setForm({ ...form, nextReminderMinutes: e.target.value })}
+                className="flex-1 border dark:border-slate-600 rounded-lg px-3 py-2 text-sm dark:bg-slate-800 dark:text-white"
+              >
+                <option value="">Choose reminder...</option>
+                {REMINDER_OPTIONS.map((option) => (
+                  <option
+                    key={option.value}
+                    value={option.value}
+                    disabled={form.reminderMinutesList.includes(option.value)}
+                  >
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={addReminder}
+                disabled={!form.nextReminderMinutes}
+                className="px-3 py-2 btn-gradient text-white rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <Plus size={14} />
+              </button>
+            </div>
+            {form.reminderMinutesList.length === 0 ? (
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">No reminders set</p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {form.reminderMinutesList.map((minutes) => (
+                  <button
+                    key={minutes}
+                    type="button"
+                    onClick={() => removeReminder(minutes)}
+                    className="inline-flex items-center gap-1 rounded-full bg-violet-50 dark:bg-violet-500/10 px-2 py-1 text-xs text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-500/20"
+                    title="Remove reminder"
+                  >
+                    {getReminderLabel(minutes)}
+                    <X size={12} />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Category + Goal */}
@@ -430,12 +511,14 @@ function DateCellWrapper({ children, value, allEvents }) {
 
 export default function CalendarPage() {
   const qc = useQueryClient();
+  const [searchParams] = useSearchParams();
+  const initialDate = parseDateParam(searchParams.get('date'));
   const [modal, setModal] = useState(null);
-  const [date, setDate] = useState(new Date());
+  const [date, setDate] = useState(initialDate);
   const [view, setView] = useState('month');
   const [range, setRange] = useState({
-    start: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString(),
-    end: new Date(new Date().getFullYear(), new Date().getMonth() + 2, 0).toISOString(),
+    start: new Date(initialDate.getFullYear(), initialDate.getMonth(), 1).toISOString(),
+    end: new Date(initialDate.getFullYear(), initialDate.getMonth() + 2, 0).toISOString(),
   });
 
   const { data: events = [] } = useQuery({
@@ -521,6 +604,18 @@ export default function CalendarPage() {
     },
     [],
   );
+
+  useEffect(() => {
+    const eventId = searchParams.get('eventId');
+    if (!eventId) return;
+
+    const linkedEvent = allEvents.find((event) => (
+      !event.isHoliday && String(event.id) === eventId
+    ));
+    if (linkedEvent) {
+      handleSelectEvent(linkedEvent);
+    }
+  }, [allEvents, handleSelectEvent, searchParams]);
 
   const handleNavigate = useCallback((newDate) => {
     setDate(newDate);
