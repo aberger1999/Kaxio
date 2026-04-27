@@ -5,6 +5,7 @@ services:
     plan: starter
     autoDeploy: true
     healthCheckPath: /health/ready
+    preDeployCommand: python -m alembic upgrade head
     envVars:
       - key: ENVIRONMENT
         value: staging
@@ -37,6 +38,7 @@ services:
     plan: starter
     autoDeploy: false
     healthCheckPath: /health/ready
+    preDeployCommand: python -m alembic upgrade head
     envVars:
       - key: ENVIRONMENT
         value: production

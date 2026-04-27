@@ -31,4 +31,4 @@ EXPOSE 5000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
   CMD curl --fail http://127.0.0.1:5000/health/ready || exit 1
 
-CMD ["sh", "-c", "alembic upgrade head && exec uvicorn server.main:app --host 0.0.0.0 --port ${PORT:-5000}"]
+CMD ["sh", "-c", "exec uvicorn server.main:app --host 0.0.0.0 --port ${PORT:-5000}"]
