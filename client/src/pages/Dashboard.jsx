@@ -345,8 +345,9 @@ export default function Dashboard() {
             {activityFeed.slice(0, 20).map((item, idx) => {
               const Icon = FEED_ICONS[item.type] || Activity;
               const colorClass = FEED_COLORS[item.type] || 'text-gray-500 bg-gray-50 dark:bg-slate-800';
-              return (
-                <li key={idx} className="flex items-center gap-3 py-2 border-b dark:border-slate-800 last:border-0">
+              const itemKey = `${item.type}-${item.action}-${item.targetId || idx}-${item.timestamp}`;
+              const content = (
+                <>
                   <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${colorClass}`}>
                     <Icon size={14} />
                   </div>
@@ -356,6 +357,24 @@ export default function Dashboard() {
                   <span className="text-xs text-gray-400 shrink-0">
                     {relativeTime(item.timestamp)}
                   </span>
+                </>
+              );
+
+              return (
+                <li key={itemKey} className="border-b dark:border-slate-800 last:border-0">
+                  {item.href ? (
+                    <Link
+                      to={item.href}
+                      className="flex items-center gap-3 py-2 rounded-lg transition-colors hover:bg-gray-50 dark:hover:bg-slate-800/70"
+                      title={`Open ${item.description}`}
+                    >
+                      {content}
+                    </Link>
+                  ) : (
+                    <div className="flex items-center gap-3 py-2">
+                      {content}
+                    </div>
+                  )}
                 </li>
               );
             })}

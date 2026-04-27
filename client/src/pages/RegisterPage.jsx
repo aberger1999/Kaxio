@@ -65,7 +65,7 @@ export default function RegisterPage() {
     }`;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-violet-50/30 dark:from-slate-950 dark:to-violet-950/20 px-4">
+    <div className="dark min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-violet-50/30 dark:from-slate-950 dark:to-violet-950/20 px-4">
       <div className="w-full max-w-md">
         {/* Logo / Brand */}
         <div className="text-center mb-8">
@@ -116,7 +116,7 @@ export default function RegisterPage() {
                   type="text"
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
-                  placeholder="Alex"
+                  placeholder="First Name"
                   className={inputClass('firstName')}
                 />
               </div>
@@ -138,7 +138,7 @@ export default function RegisterPage() {
                   type="text"
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
-                  placeholder="Berger"
+                  placeholder="Last Name"
                   className={inputClass('lastName')}
                 />
               </div>

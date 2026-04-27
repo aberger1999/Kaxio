@@ -24,6 +24,27 @@ CATEGORY_LABELS = {
 }
 
 
+def _feed_item(
+    item_type: str,
+    action: str,
+    description: str,
+    timestamp: str,
+    href: str,
+    target_id: int | None = None,
+):
+    """Build a consistent activity-feed payload with a frontend destination."""
+    item = {
+        "type": item_type,
+        "action": action,
+        "description": description,
+        "timestamp": timestamp,
+        "href": href,
+    }
+    if target_id is not None:
+        item["targetId"] = target_id
+    return item
+
+
 def _week_bounds():
     today = date.today()
     monday = today - timedelta(days=today.weekday())
@@ -56,19 +77,23 @@ async def get_activity_feed(
         created_this_week = n.created_at and mon_dt <= n.created_at <= sun_dt
         updated_this_week = n.updated_at and mon_dt <= n.updated_at <= sun_dt
         if created_this_week:
-            items.append({
-                "type": "note",
-                "action": "created",
-                "description": f'Created note "{n.title}"',
-                "timestamp": n.created_at.isoformat(),
-            })
+            items.append(_feed_item(
+                "note",
+                "created",
+                f'Created note "{n.title}"',
+                n.created_at.isoformat(),
+                f"/notes/{n.id}",
+                n.id,
+            ))
         if updated_this_week and n.updated_at != n.created_at:
-            items.append({
-                "type": "note",
-                "action": "updated",
-                "description": f'Edited note "{n.title}"',
-                "timestamp": n.updated_at.isoformat(),
-            })
+            items.append(_feed_item(
+                "note",
+                "updated",
+                f'Edited note "{n.title}"',
+                n.updated_at.isoformat(),
+                f"/notes/{n.id}",
+                n.id,
+            ))
 
     # Goals created or updated this week
     result = await db.execute(
@@ -84,19 +109,23 @@ async def get_activity_feed(
         created_this_week = g.created_at and mon_dt <= g.created_at <= sun_dt
         updated_this_week = g.updated_at and mon_dt <= g.updated_at <= sun_dt
         if created_this_week:
-            items.append({
-                "type": "goal",
-                "action": "created",
-                "description": f'Created goal "{g.title}"',
-                "timestamp": g.created_at.isoformat(),
-            })
+            items.append(_feed_item(
+                "goal",
+                "created",
+                f'Created goal "{g.title}"',
+                g.created_at.isoformat(),
+                f"/goals/{g.id}",
+                g.id,
+            ))
         if updated_this_week and g.updated_at != g.created_at:
-            items.append({
-                "type": "goal",
-                "action": "updated",
-                "description": f'Updated goal "{g.title}" ({g.progress}%)',
-                "timestamp": g.updated_at.isoformat(),
-            })
+            items.append(_feed_item(
+                "goal",
+                "updated",
+                f'Updated goal "{g.title}" ({g.progress}%)',
+                g.updated_at.isoformat(),
+                f"/goals/{g.id}",
+                g.id,
+            ))
 
     # Calendar events created this week
     result = await db.execute(
@@ -107,12 +136,15 @@ async def get_activity_feed(
         )
     )
     for e in result.scalars().all():
-        items.append({
-            "type": "event",
-            "action": "created",
-            "description": f'Added event "{e.title}"',
-            "timestamp": e.created_at.isoformat(),
-        })
+        event_date = e.start.isoformat()[:10] if e.start else e.created_at.isoformat()[:10]
+        items.append(_feed_item(
+            "event",
+            "created",
+            f'Added event "{e.title}"',
+            e.created_at.isoformat(),
+            f"/calendar?date={event_date}&eventId={e.id}",
+            e.id,
+        ))
 
     # Journal entries written this week
     result = await db.execute(
@@ -126,12 +158,14 @@ async def get_activity_feed(
         has_content = bool(j.morning_intentions or j.content or j.evening_reflection)
         if has_content:
             ts = j.updated_at or j.created_at
-            items.append({
-                "type": "journal",
-                "action": "written",
-                "description": f'Wrote journal for {j.date.strftime("%A, %b %d")}',
-                "timestamp": ts.isoformat() if ts else j.date.isoformat(),
-            })
+            items.append(_feed_item(
+                "journal",
+                "written",
+                f'Wrote journal for {j.date.strftime("%A, %b %d")}',
+                ts.isoformat() if ts else j.date.isoformat(),
+                f"/journal?date={j.date.isoformat()}",
+                j.id,
+            ))
 
     # Habit logs this week
     result = await db.execute(
@@ -145,12 +179,14 @@ async def get_activity_feed(
         if h.is_completed:
             label = CATEGORY_LABELS.get(h.category, h.category)
             ts = h.updated_at or h.created_at
-            items.append({
-                "type": "habit",
-                "action": "logged",
-                "description": f'Logged {label} habit for {h.date.strftime("%A")}',
-                "timestamp": ts.isoformat() if ts else h.date.isoformat(),
-            })
+            items.append(_feed_item(
+                "habit",
+                "logged",
+                f'Logged {label} habit for {h.date.strftime("%A")}',
+                ts.isoformat() if ts else h.date.isoformat(),
+                f"/habits?date={h.date.isoformat()}&category={h.category}",
+                h.id,
+            ))
 
     # Custom habit logs this week
     result = await db.execute(
@@ -172,12 +208,14 @@ async def get_activity_feed(
             habit = habit_result.scalar_one_or_none()
             habit_cache[cl.custom_habit_id] = habit.name if habit else "Custom habit"
         name = habit_cache[cl.custom_habit_id]
-        items.append({
-            "type": "habit",
-            "action": "logged",
-            "description": f'Logged "{name}" for {cl.date.strftime("%A")}',
-            "timestamp": cl.created_at.isoformat() if cl.created_at else cl.date.isoformat(),
-        })
+        items.append(_feed_item(
+            "habit",
+            "logged",
+            f'Logged "{name}" for {cl.date.strftime("%A")}',
+            cl.created_at.isoformat() if cl.created_at else cl.date.isoformat(),
+            f"/habits?date={cl.date.isoformat()}&habitId={cl.custom_habit_id}",
+            cl.id,
+        ))
 
     # Thought posts created or updated this week
     result = await db.execute(
@@ -193,19 +231,23 @@ async def get_activity_feed(
         created_this_week = p.created_at and mon_dt <= p.created_at <= sun_dt
         updated_this_week = p.updated_at and mon_dt <= p.updated_at <= sun_dt
         if created_this_week:
-            items.append({
-                "type": "thought",
-                "action": "created",
-                "description": f'Posted thought "{p.title}"',
-                "timestamp": p.created_at.isoformat(),
-            })
+            items.append(_feed_item(
+                "thought",
+                "created",
+                f'Posted thought "{p.title}"',
+                p.created_at.isoformat(),
+                f"/thoughts?postId={p.id}",
+                p.id,
+            ))
         if updated_this_week and p.updated_at != p.created_at:
-            items.append({
-                "type": "thought",
-                "action": "updated",
-                "description": f'Updated thought "{p.title}"',
-                "timestamp": p.updated_at.isoformat(),
-            })
+            items.append(_feed_item(
+                "thought",
+                "updated",
+                f'Updated thought "{p.title}"',
+                p.updated_at.isoformat(),
+                f"/thoughts?postId={p.id}",
+                p.id,
+            ))
 
     # Focus sessions this week
     result = await db.execute(
@@ -218,12 +260,14 @@ async def get_activity_feed(
     for fs in result.scalars().all():
         duration_min = (fs.actual_duration or 0) // 60
         title = fs.title or "Untitled session"
-        items.append({
-            "type": "focus",
-            "action": fs.status,
-            "description": f'Focus session: "{title}" ({duration_min}min, {fs.status})',
-            "timestamp": fs.created_at.isoformat(),
-        })
+        items.append(_feed_item(
+            "focus",
+            fs.status,
+            f'Focus session: "{title}" ({duration_min}min, {fs.status})',
+            fs.created_at.isoformat(),
+            f"/focus?sessionId={fs.id}",
+            fs.id,
+        ))
 
     items.sort(key=lambda x: x["timestamp"], reverse=True)
     return items
