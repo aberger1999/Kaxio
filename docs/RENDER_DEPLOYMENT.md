@@ -101,15 +101,17 @@ This gives a true approval gate before production deploy jobs run.
 
 ## 5) Database Migrations
 
-Run migrations as part of your release process:
+Render should run migrations before each new version goes live:
 
-- `alembic upgrade head`
+- **Pre-deploy command:** `python -m alembic upgrade head`
 
 Recommended pattern:
 
 - Run migration in staging first
 - Validate core flows
 - Promote to production
+
+Do not also run Alembic in the Docker start command. The app container should start Uvicorn directly after the pre-deploy migration succeeds.
 
 ## 6) Rollback
 
